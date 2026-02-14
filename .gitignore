@@ -8,3 +8,6 @@ __pycache__/
 .mypy_cache/
 coverage.xml
 htmlcov/
+data/*.db
+data/*.sqlite
+data/*.sqlite3

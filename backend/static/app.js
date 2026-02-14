@@ -1,55 +1,124 @@
-const map = L.map("map").setView([45.20, -93.95], 11);
+const map = L.map("map").setView([45.2, -93.95], 11);
 L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
   maxZoom: 20,
-  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+  attribution:
+    '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
 }).addTo(map);
 
 const addressInput = document.getElementById("address");
+const ringsInput = document.getElementById("rings");
+const useLlmInput = document.getElementById("use-llm");
 const lookupButton = document.getElementById("lookup");
 const statusEl = document.getElementById("status");
-const detailsEl = document.getElementById("details");
+const runMetaEl = document.getElementById("run-meta");
+const runIdEl = document.getElementById("run-id");
+const runStatusEl = document.getElementById("run-status");
+const parcelCountEl = document.getElementById("parcel-count");
+const ownerCountEl = document.getElementById("owner-count");
+const seedParcelEl = document.getElementById("seed-parcel");
+const summaryEl = document.getElementById("summary");
+const csvLink = document.getElementById("csv-link");
+const geojsonLink = document.getElementById("geojson-link");
+const resultsBody = document.getElementById("results-body");
 
-const parcelIdEl = document.getElementById("parcel-id");
-const ownerEl = document.getElementById("owner");
-const siteAddressEl = document.getElementById("site-address");
-const matchedByEl = document.getElementById("matched-by");
-const sourceEl = document.getElementById("source");
+const ringColors = {
+  0: "#1a6f4b",
+  1: "#2d4f9a",
+  2: "#b76a22",
+};
 
-let activeLayer = null;
+let layers = [];
 
 function setStatus(text, isError = false) {
   statusEl.textContent = text;
-  statusEl.style.color = isError ? "#8a1f1f" : "#5f736a";
+  statusEl.style.color = isError ? "#8a1f1f" : "#5a6e65";
 }
 
 function setBusy(isBusy) {
   lookupButton.disabled = isBusy;
-  lookupButton.textContent = isBusy ? "Looking up..." : "Lookup";
+  lookupButton.textContent = isBusy ? "Running..." : "Run Lookup";
 }
 
-function renderGeometry(geometry) {
-  if (activeLayer) {
-    map.removeLayer(activeLayer);
-    activeLayer = null;
+function clearMap() {
+  for (const layer of layers) {
+    map.removeLayer(layer);
+  }
+  layers = [];
+}
+
+function renderParcels(parcels) {
+  clearMap();
+  const bounds = L.latLngBounds([]);
+
+  for (const parcel of parcels) {
+    if (!parcel.geometry) {
+      continue;
+    }
+
+    const color = ringColors[parcel.ring_number] || "#6c6c6c";
+    const layer = L.geoJSON(parcel.geometry, {
+      style: {
+        color,
+        weight: parcel.is_seed ? 3 : 2,
+        fillColor: color,
+        fillOpacity: parcel.is_seed ? 0.35 : 0.2,
+      },
+    }).addTo(map);
+
+    layer.bindPopup(
+      `<strong>Parcel:</strong> ${parcel.parcel_id}<br/>` +
+        `<strong>Owner:</strong> ${parcel.owner_name || "(unknown)"}<br/>` +
+        `<strong>Ring:</strong> ${parcel.ring_number}`
+    );
+
+    layers.push(layer);
+    const layerBounds = layer.getBounds();
+    if (layerBounds.isValid()) {
+      bounds.extend(layerBounds);
+    }
   }
 
-  if (!geometry) {
+  if (bounds.isValid()) {
+    map.fitBounds(bounds.pad(0.2));
+  }
+}
+
+function renderTable(parcels) {
+  resultsBody.innerHTML = "";
+
+  if (!parcels.length) {
+    resultsBody.innerHTML =
+      '<tr><td colspan="5" class="empty">No parcel rows for this run.</td></tr>';
     return;
   }
 
-  activeLayer = L.geoJSON(geometry, {
-    style: {
-      color: "#176b48",
-      weight: 2,
-      fillColor: "#49b27d",
-      fillOpacity: 0.28,
-    },
-  }).addTo(map);
-
-  const bounds = activeLayer.getBounds();
-  if (bounds.isValid()) {
-    map.fitBounds(bounds.pad(0.25));
+  for (const parcel of parcels) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${parcel.ring_number}${parcel.is_seed ? " (seed)" : ""}</td>
+      <td>${parcel.parcel_id}</td>
+      <td>${parcel.owner_name || ""}</td>
+      <td>${parcel.normalized_owner_name || ""}</td>
+      <td>${parcel.site_address || ""}</td>
+    `;
+    resultsBody.appendChild(tr);
   }
+}
+
+function renderRun(run) {
+  runMetaEl.classList.remove("hidden");
+  runIdEl.textContent = run.id;
+  runStatusEl.textContent = run.status;
+  parcelCountEl.textContent = run.parcel_count;
+  ownerCountEl.textContent = run.owner_count;
+  seedParcelEl.textContent = run.seed_parcel_id || "(none)";
+  summaryEl.textContent = run.summary || "";
+
+  csvLink.href = `/api/runs/${run.id}/csv`;
+  geojsonLink.href = `/api/runs/${run.id}/geojson`;
+
+  renderParcels(run.parcels || []);
+  renderTable(run.parcels || []);
 }
 
 async function runLookup() {
@@ -60,13 +129,17 @@ async function runLookup() {
   }
 
   setBusy(true);
-  setStatus("Searching Wright County parcels...");
+  setStatus("Running lookup...");
 
   try {
     const response = await fetch("/api/lookup", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ address }),
+      body: JSON.stringify({
+        address,
+        rings: Number(ringsInput.value),
+        use_llm: Boolean(useLlmInput.checked),
+      }),
     });
 
     const payload = await response.json();
@@ -74,17 +147,13 @@ async function runLookup() {
       throw new Error(payload.detail || "Lookup failed.");
     }
 
-    parcelIdEl.textContent = payload.parcel_id || "(not found)";
-    ownerEl.textContent = payload.owner_name || "(not found)";
-    siteAddressEl.textContent = payload.site_address || "(not found)";
-    matchedByEl.textContent = payload.matched_by;
-    sourceEl.textContent = payload.source;
-    detailsEl.classList.remove("hidden");
-
-    renderGeometry(payload.geometry);
-    setStatus("Lookup complete.");
+    renderRun(payload);
+    const suffix = payload.status === "capped" ? " (capped by limits)" : "";
+    setStatus(`Run ${payload.id} complete${suffix}.`);
   } catch (error) {
-    detailsEl.classList.add("hidden");
+    runMetaEl.classList.add("hidden");
+    clearMap();
+    renderTable([]);
     setStatus(error.message || "Lookup failed.", true);
   } finally {
     setBusy(false);

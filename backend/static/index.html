@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>ParcelPicker - Wright County MVP</title>
+    <title>ParcelPicker - Wright County</title>
     <link
       rel="stylesheet"
       href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
@@ -16,38 +16,74 @@
     <main class="app-shell">
       <section class="panel controls">
         <h1>ParcelPicker</h1>
-        <p class="subheading">Phase 1 MVP (Wright County, MN)</p>
+        <p class="subheading">Wright County, MN - Address to owner + adjacent rings</p>
+
         <label for="address">Property Address</label>
-        <div class="lookup-row">
-          <input id="address" type="text" placeholder="Example: 11800 48th St NE, St Michael, MN" />
-          <button id="lookup">Lookup</button>
+        <input
+          id="address"
+          type="text"
+          placeholder="Example: 11800 48th St NE, St Michael, MN"
+        />
+
+        <div class="row-options">
+          <label for="rings">Rings</label>
+          <select id="rings">
+            <option value="0">0 (seed only)</option>
+            <option value="1">1 (touching parcels)</option>
+            <option value="2">2 (second ring)</option>
+          </select>
         </div>
+
+        <label class="checkbox-row" for="use-llm">
+          <input id="use-llm" type="checkbox" />
+          <span>Enable LLM owner normalization/summary (if configured)</span>
+        </label>
+
+        <div class="lookup-row">
+          <button id="lookup">Run Lookup</button>
+        </div>
+
         <p id="status" class="status"></p>
-        <dl id="details" class="details hidden">
-          <div>
-            <dt>Parcel ID</dt>
-            <dd id="parcel-id"></dd>
+
+        <div id="run-meta" class="run-meta hidden">
+          <p><strong>Run:</strong> <span id="run-id"></span></p>
+          <p><strong>Status:</strong> <span id="run-status"></span></p>
+          <p><strong>Parcel Count:</strong> <span id="parcel-count"></span></p>
+          <p><strong>Owner Count:</strong> <span id="owner-count"></span></p>
+          <p><strong>Seed Parcel:</strong> <span id="seed-parcel"></span></p>
+          <p id="summary" class="summary"></p>
+
+          <div class="export-row">
+            <a id="csv-link" href="#" target="_blank" rel="noopener">Download CSV</a>
+            <a id="geojson-link" href="#" target="_blank" rel="noopener">Download GeoJSON</a>
           </div>
-          <div>
-            <dt>Owner</dt>
-            <dd id="owner"></dd>
-          </div>
-          <div>
-            <dt>Site Address</dt>
-            <dd id="site-address"></dd>
-          </div>
-          <div>
-            <dt>Matched By</dt>
-            <dd id="matched-by"></dd>
-          </div>
-          <div>
-            <dt>Source</dt>
-            <dd id="source"></dd>
-          </div>
-        </dl>
+        </div>
       </section>
+
       <section class="panel map-panel">
         <div id="map" aria-label="Parcel map"></div>
+      </section>
+
+      <section class="panel table-panel">
+        <h2>Run Parcels</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Ring</th>
+                <th>Parcel ID</th>
+                <th>Owner</th>
+                <th>Normalized Owner</th>
+                <th>Address</th>
+              </tr>
+            </thead>
+            <tbody id="results-body">
+              <tr>
+                <td colspan="5" class="empty">No results yet.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </section>
     </main>
 
