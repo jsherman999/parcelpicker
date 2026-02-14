@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.1] - 2026-02-14
+
+### Changed
+- Updated default app port in `.env.example` to `8091` for local/LAN usage consistency.
+- Updated `README.md` run/access instructions to use `http://127.0.0.1:8091` and LAN `:8091`.
+- Updated `.gitignore` to ignore the runtime `data/` directory created during local execution.
+
 ## [0.5.0] - 2026-02-14
 
 ### Added

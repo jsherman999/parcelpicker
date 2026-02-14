@@ -35,13 +35,13 @@ python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env
-python -m uvicorn backend.main:app --host 0.0.0.0 --port 8090 --reload
+python -m uvicorn backend.main:app --host 0.0.0.0 --port 8091 --reload
 ```
 
 ## Access
 
-- Same machine: [http://127.0.0.1:8090](http://127.0.0.1:8090)
-- LAN device: `http://<your-mac-lan-ip>:8090`
+- Same machine: [http://127.0.0.1:8091](http://127.0.0.1:8091)
+- LAN device: `http://<your-mac-lan-ip>:8091`
 
 ## Environment Configuration
 
