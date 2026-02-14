@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ParcelPicker - Wright County MVP</title>
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+      crossorigin=""
+    />
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="panel controls">
+        <h1>ParcelPicker</h1>
+        <p class="subheading">Phase 1 MVP (Wright County, MN)</p>
+        <label for="address">Property Address</label>
+        <div class="lookup-row">
+          <input id="address" type="text" placeholder="Example: 11800 48th St NE, St Michael, MN" />
+          <button id="lookup">Lookup</button>
+        </div>
+        <p id="status" class="status"></p>
+        <dl id="details" class="details hidden">
+          <div>
+            <dt>Parcel ID</dt>
+            <dd id="parcel-id"></dd>
+          </div>
+          <div>
+            <dt>Owner</dt>
+            <dd id="owner"></dd>
+          </div>
+          <div>
+            <dt>Site Address</dt>
+            <dd id="site-address"></dd>
+          </div>
+          <div>
+            <dt>Matched By</dt>
+            <dd id="matched-by"></dd>
+          </div>
+          <div>
+            <dt>Source</dt>
+            <dd id="source"></dd>
+          </div>
+        </dl>
+      </section>
+      <section class="panel map-panel">
+        <div id="map" aria-label="Parcel map"></div>
+      </section>
+    </main>
+
+    <script
+      src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+      integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+      crossorigin=""
+    ></script>
+    <script src="/static/app.js"></script>
+  </body>
+</html>
