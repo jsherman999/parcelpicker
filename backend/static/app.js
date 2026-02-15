@@ -118,6 +118,14 @@ function renderRun(run) {
   csvLink.href = `/api/runs/${run.id}/csv`;
   geojsonLink.href = `/api/runs/${run.id}/geojson`;
 
+  // If the run came from a map click, preload the detected parcel address so
+  // the normal address-based "Run Lookup" flow can be used immediately.
+  const seedParcel = (run.parcels || []).find((parcel) => parcel.is_seed);
+  const detectedAddress = (seedParcel && seedParcel.site_address) || "";
+  if (detectedAddress && String(run.input_address || "").startsWith("POINT(")) {
+    addressInput.value = detectedAddress;
+  }
+
   renderParcels(run.parcels || []);
   renderTable(run.parcels || []);
 }

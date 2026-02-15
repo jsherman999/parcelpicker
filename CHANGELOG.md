@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.4] - 2026-02-15
+
+### Changed
+- Auto-populated the Property Address input after successful map-click lookup, using the detected seed parcel address.
+- Restored OpenStreetMap light basemap and original parcel ring colors.
+- Updated field-label typography to a smaller terminal-style look.
+- Updated `README.md` behavior notes to document map-click auto-populate.
+
 ## [0.5.3] - 2026-02-15
 
 ### Added

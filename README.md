@@ -137,6 +137,7 @@ Download the run as GeoJSON FeatureCollection.
 
 - Ring expansion uses `Touches` spatial relation against the current ring geometry set.
 - The web UI also supports map-click seeded lookups (uses `/api/lookup/point`).
+- After a successful map-click lookup, the seed parcel address is auto-populated into the Property Address field.
 - Runs are bounded by request and parcel caps; capped runs return status `capped`.
 - LLM assistance is advisory and never used to invent parcel IDs or owners.
 - Owner normalization falls back to deterministic uppercase normalization when LLM is disabled/unavailable.
