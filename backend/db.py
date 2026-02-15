@@ -21,6 +21,7 @@ class ParcelDatabase:
             self._conn.executescript(
                 """
                 PRAGMA journal_mode=WAL;
+                PRAGMA foreign_keys=ON;
 
                 CREATE TABLE IF NOT EXISTS lookup_runs (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -56,6 +57,16 @@ class ParcelDatabase:
                     FOREIGN KEY (run_id) REFERENCES lookup_runs (id),
                     FOREIGN KEY (parcel_id) REFERENCES parcels (parcel_id)
                 );
+
+                CREATE TABLE IF NOT EXISTS parcel_address_aliases (
+                    normalized_address TEXT PRIMARY KEY,
+                    parcel_id TEXT NOT NULL,
+                    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (parcel_id) REFERENCES parcels (parcel_id)
+                );
+
+                CREATE INDEX IF NOT EXISTS idx_alias_parcel_id
+                ON parcel_address_aliases(parcel_id);
                 """
             )
             self._conn.commit()
@@ -212,6 +223,152 @@ class ParcelDatabase:
             )
             rows = cur.fetchall()
         return [dict(row) for row in rows]
+
+    def upsert_address_alias(self, normalized_address: str, parcel_id: str) -> None:
+        clean_address = normalized_address.strip()
+        clean_parcel_id = parcel_id.strip()
+        if not clean_address or not clean_parcel_id:
+            return
+
+        with self._lock:
+            self._conn.execute(
+                """
+                INSERT INTO parcel_address_aliases (
+                    normalized_address,
+                    parcel_id,
+                    updated_at
+                )
+                VALUES (?, ?, CURRENT_TIMESTAMP)
+                ON CONFLICT(normalized_address) DO UPDATE SET
+                    parcel_id = excluded.parcel_id,
+                    updated_at = CURRENT_TIMESTAMP
+                """,
+                (clean_address, clean_parcel_id),
+            )
+            self._conn.commit()
+
+    def resolve_address_alias(
+        self,
+        normalized_address: str,
+        *,
+        max_age_days: int,
+    ) -> str | None:
+        clean_address = normalized_address.strip()
+        if not clean_address:
+            return None
+        cutoff = f"-{max(1, max_age_days)} days"
+        with self._lock:
+            row = self._conn.execute(
+                """
+                SELECT parcel_id
+                FROM parcel_address_aliases
+                WHERE normalized_address = ?
+                  AND updated_at >= datetime('now', ?)
+                LIMIT 1
+                """,
+                (clean_address, cutoff),
+            ).fetchone()
+        if row is None:
+            return None
+        return str(row["parcel_id"]).strip() or None
+
+    def get_recent_run_for_seed_parcel(
+        self,
+        *,
+        seed_parcel_id: str,
+        min_rings: int,
+        max_age_days: int,
+    ) -> dict[str, Any] | None:
+        clean_seed = seed_parcel_id.strip()
+        if not clean_seed:
+            return None
+        cutoff = f"-{max(1, max_age_days)} days"
+        with self._lock:
+            row = self._conn.execute(
+                """
+                SELECT id
+                FROM lookup_runs
+                WHERE seed_parcel_id = ?
+                  AND status IN ('completed', 'capped')
+                  AND rings_requested >= ?
+                  AND created_at >= datetime('now', ?)
+                ORDER BY id DESC
+                LIMIT 1
+                """,
+                (clean_seed, min_rings, cutoff),
+            ).fetchone()
+
+        if row is None:
+            return None
+
+        return self.get_run(int(row["id"]))
+
+    def cleanup_expired_data(self, *, retention_days: int) -> None:
+        cutoff = f"-{max(1, retention_days)} days"
+        with self._lock:
+            self._conn.execute(
+                """
+                DELETE FROM lookup_runs
+                WHERE created_at < datetime('now', ?)
+                """,
+                (cutoff,),
+            )
+            self._conn.execute(
+                """
+                DELETE FROM run_parcels
+                WHERE run_id NOT IN (SELECT id FROM lookup_runs)
+                """
+            )
+            self._conn.execute(
+                """
+                DELETE FROM parcel_address_aliases
+                WHERE updated_at < datetime('now', ?)
+                """,
+                (cutoff,),
+            )
+            self._conn.execute(
+                """
+                DELETE FROM parcels
+                WHERE parcel_id NOT IN (SELECT DISTINCT parcel_id FROM run_parcels)
+                  AND updated_at < datetime('now', ?)
+                """,
+                (cutoff,),
+            )
+            self._conn.commit()
+
+    def list_recent_cached_parcels(
+        self,
+        *,
+        max_age_days: int,
+    ) -> list[dict[str, Any]]:
+        cutoff = f"-{max(1, max_age_days)} days"
+        with self._lock:
+            rows = self._conn.execute(
+                """
+                SELECT DISTINCT
+                    p.parcel_id,
+                    p.owner_name,
+                    p.site_address,
+                    p.geometry_json,
+                    p.source
+                FROM parcels p
+                JOIN run_parcels rp ON rp.parcel_id = p.parcel_id
+                JOIN lookup_runs lr ON lr.id = rp.run_id
+                WHERE lr.status IN ('completed', 'capped')
+                  AND lr.created_at >= datetime('now', ?)
+                  AND p.geometry_json IS NOT NULL
+                """,
+                (cutoff,),
+            ).fetchall()
+
+        parcels: list[dict[str, Any]] = []
+        for row in rows:
+            payload = dict(row)
+            geometry_json = payload.get("geometry_json")
+            payload["geometry"] = json.loads(geometry_json) if geometry_json else None
+            payload.pop("geometry_json", None)
+            parcels.append(payload)
+        return parcels
 
     def get_run(self, run_id: int) -> dict[str, Any] | None:
         with self._lock:

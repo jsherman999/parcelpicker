@@ -2,6 +2,28 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.6] - 2026-02-15
+
+### Added
+- Property Links panel in the web UI for selected seed parcel results.
+- Zillow-first external link generation with Realtor and county/public fallback links.
+
+### Changed
+- Property links now update for both address-seeded and map-click-seeded runs.
+- Clarified documentation that external listing links open in new tabs.
+
+## [0.5.5] - 2026-02-15
+
+### Added
+- 30-day persistent local cache behavior for repeat parcel lookups.
+- Address-to-parcel alias mapping for fast cache hits on previously analyzed parcels.
+- API response field `from_cache` to indicate cached responses.
+
+### Changed
+- Repeat address lookups now return immediately from cache when a matching parcel was analyzed in the last 30 days.
+- Added database retention cleanup for runs, aliases, and unreferenced parcel rows older than retention window.
+- Added `RETENTION_DAYS` environment setting (`.env.example`).
+
 ## [0.5.4] - 2026-02-15
 
 ### Changed

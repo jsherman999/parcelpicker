@@ -10,6 +10,8 @@ Current implementation supports **Wright County, Minnesota** with the full plann
 4. Run exports (`CSV`, `GeoJSON`) and provider safeguards (retry/rate-limit/request budgets).
 5. Optional LLM-assisted owner normalization and run summary (OpenAI or OpenRouter, feature-flagged).
 6. Map click lookup: click any map location to identify parcel and run ring expansion from that seed.
+7. 30-day persistent parcel cache for immediate repeat lookup responses.
+8. Property Links panel with Zillow-first external links and Realtor/county fallbacks.
 
 ## Data Sources (MVP)
 
@@ -52,6 +54,7 @@ Core settings:
 
 - `HOST` / `PORT`
 - `DB_PATH`
+- `RETENTION_DAYS` (default `30`)
 - `MAX_PARCELS`
 - `MAX_REQUESTS_PER_RUN`
 - `ADJACENT_LIMIT_PER_PARCEL`
@@ -99,6 +102,7 @@ Request:
 - `use_llm`: only applies when `ENABLE_LLM_ASSIST=true` and keys are configured
 
 Success response contains run metadata plus all parcel rows for the run.
+- Includes `from_cache` (`true`/`false`) indicating whether results came from 30-day local cache.
 
 ### `POST /api/lookup/point`
 
@@ -116,6 +120,7 @@ Request:
 - Uses point-intersect lookup against Wright parcels.
 - If a parcel is found at the clicked location, it becomes the seed for ring expansion.
 - Returns the same run payload structure as `POST /api/lookup`.
+- Includes `from_cache` (`true`/`false`) for cache visibility.
 
 ### `GET /api/runs?limit=20`
 
@@ -138,6 +143,10 @@ Download the run as GeoJSON FeatureCollection.
 - Ring expansion uses `Touches` spatial relation against the current ring geometry set.
 - The web UI also supports map-click seeded lookups (uses `/api/lookup/point`).
 - After a successful map-click lookup, the seed parcel address is auto-populated into the Property Address field.
+- Repeat lookups for known parcels are served from local cache when available within 30 days.
+- The web UI shows a Property Links panel for the selected seed parcel:
+- Zillow link first, then Realtor and county/public fallback links.
+- External property links open in new tabs (not embedded iframes).
 - Runs are bounded by request and parcel caps; capped runs return status `capped`.
 - LLM assistance is advisory and never used to invent parcel IDs or owners.
 - Owner normalization falls back to deterministic uppercase normalization when LLM is disabled/unavailable.

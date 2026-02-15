@@ -264,6 +264,56 @@ button:disabled {
   flex-direction: column;
 }
 
+.links-panel {
+  margin-bottom: 0.92rem;
+  padding: 0.9rem;
+  border: 1px solid rgba(113, 146, 194, 0.3);
+  border-radius: 12px;
+  background: rgba(10, 17, 31, 0.72);
+}
+
+.links-panel h2 {
+  font-size: 0.98rem;
+  margin-bottom: 0.42rem;
+}
+
+.links-context {
+  margin: 0;
+  color: #bfcee6;
+  font-size: 0.84rem;
+}
+
+.links-note {
+  margin: 0.4rem 0 0.65rem;
+  color: #92a7cb;
+  font-size: 0.77rem;
+}
+
+.link-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.link-chip {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid rgba(101, 147, 220, 0.55);
+  border-radius: 999px;
+  padding: 0.34rem 0.62rem;
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: #cfe4ff;
+  text-decoration: none;
+  background: rgba(42, 83, 153, 0.24);
+}
+
+.link-chip.primary {
+  border-color: rgba(112, 231, 203, 0.66);
+  background: rgba(14, 140, 128, 0.28);
+  color: #d6fff4;
+}
+
 .table-wrap {
   margin-top: 0.72rem;
   overflow: auto;

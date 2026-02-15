@@ -12,6 +12,7 @@ from backend.services.wright import ParcelRecord, RequestBudget, WrightParcelSer
 
 
 logger = logging.getLogger(__name__)
+_UNSET = object()
 
 
 @dataclass(slots=True)
@@ -20,6 +21,7 @@ class LookupSettings:
     max_requests: int
     adjacent_limit_per_parcel: int
     max_llm_normalizations: int
+    retention_days: int
 
 
 class ParcelLookupRunner:
@@ -43,11 +45,22 @@ class ParcelLookupRunner:
         rings_requested: int,
         use_llm: bool,
     ) -> dict:
+        self._db.cleanup_expired_data(retention_days=self._settings.retention_days)
+        normalized_input = self._normalize_address_for_alias(input_address)
+        cached = self._get_cached_run_for_address(
+            normalized_input=normalized_input,
+            rings_requested=rings_requested,
+            input_address=input_address,
+        )
+        if cached is not None:
+            return cached
+
         return await self._run_lookup_core(
             input_label=input_address,
             rings_requested=rings_requested,
             use_llm=use_llm,
             not_found_error="No parcel match found for the provided address.",
+            input_alias=normalized_input,
             seed_resolver=lambda budget: self._parcel_service.lookup(
                 input_address,
                 budget=budget,
@@ -62,17 +75,69 @@ class ParcelLookupRunner:
         rings_requested: int,
         use_llm: bool,
     ) -> dict:
+        self._db.cleanup_expired_data(retention_days=self._settings.retention_days)
         input_label = f"POINT({lat:.6f}, {lon:.6f})"
+
+        local_seed = self._resolve_seed_from_local_cache(lon=lon, lat=lat)
+        if local_seed is not None and local_seed.parcel_id:
+            cached = self._db.get_recent_run_for_seed_parcel(
+                seed_parcel_id=local_seed.parcel_id,
+                min_rings=rings_requested,
+                max_age_days=self._settings.retention_days,
+            )
+            if cached is not None:
+                return self._build_cached_run_response(
+                    cached_run=cached,
+                    rings_requested=rings_requested,
+                    input_label=input_label,
+                    seed_parcel_id=local_seed.parcel_id,
+                )
+
+            return await self._run_lookup_core(
+                input_label=input_label,
+                rings_requested=rings_requested,
+                use_llm=use_llm,
+                not_found_error="No parcel found at clicked map location.",
+                input_alias=None,
+                seed_resolver=lambda budget: self._parcel_service.lookup_by_point(
+                    lon=lon,
+                    lat=lat,
+                    budget=budget,
+                ),
+                pre_resolved_seed=local_seed,
+            )
+
+        provider_seed = await self._parcel_service.lookup_by_point(
+            lon=lon,
+            lat=lat,
+            budget=RequestBudget(max_requests=self._settings.max_requests),
+        )
+        if provider_seed is not None and provider_seed.parcel_id:
+            cached = self._db.get_recent_run_for_seed_parcel(
+                seed_parcel_id=provider_seed.parcel_id,
+                min_rings=rings_requested,
+                max_age_days=self._settings.retention_days,
+            )
+            if cached is not None:
+                return self._build_cached_run_response(
+                    cached_run=cached,
+                    rings_requested=rings_requested,
+                    input_label=input_label,
+                    seed_parcel_id=provider_seed.parcel_id,
+                )
+
         return await self._run_lookup_core(
             input_label=input_label,
             rings_requested=rings_requested,
             use_llm=use_llm,
             not_found_error="No parcel found at clicked map location.",
+            input_alias=None,
             seed_resolver=lambda budget: self._parcel_service.lookup_by_point(
                 lon=lon,
                 lat=lat,
                 budget=budget,
             ),
+            pre_resolved_seed=provider_seed,
         )
 
     async def _run_lookup_core(
@@ -82,7 +147,9 @@ class ParcelLookupRunner:
         rings_requested: int,
         use_llm: bool,
         not_found_error: str,
+        input_alias: str | None,
         seed_resolver: Callable[[RequestBudget], Awaitable[ParcelRecord | None]],
+        pre_resolved_seed: ParcelRecord | None | object = _UNSET,
     ) -> dict:
         llm_enabled = bool(use_llm and self._llm_service.is_available)
         run_id = self._db.create_run(
@@ -104,7 +171,10 @@ class ParcelLookupRunner:
         started = perf_counter()
 
         try:
-            seed = await seed_resolver(budget)
+            if pre_resolved_seed is _UNSET:
+                seed = await seed_resolver(budget)
+            else:
+                seed = pre_resolved_seed
             if seed is None:
                 self._db.complete_run(
                     run_id,
@@ -113,7 +183,9 @@ class ParcelLookupRunner:
                     summary=None,
                     error=not_found_error,
                 )
-                return self._must_get_run(run_id)
+                not_found_run = self._must_get_run(run_id)
+                not_found_run["from_cache"] = False
+                return not_found_run
             if not seed.parcel_id:
                 raise RuntimeError("Provider returned a parcel match without a parcel ID.")
 
@@ -205,6 +277,8 @@ class ParcelLookupRunner:
                 error=None,
             )
             completed = self._must_get_run(run_id)
+            self._upsert_aliases(seed=seed, input_alias=input_alias)
+            completed["from_cache"] = False
             duration_ms = int((perf_counter() - started) * 1000)
             logger.info(
                 "lookup_completed run_id=%s status=%s parcels=%s owners=%s requests=%s duration_ms=%s",
@@ -226,7 +300,9 @@ class ParcelLookupRunner:
                 error=str(exc),
             )
             logger.exception("lookup_failed run_id=%s error=%s", run_id, exc)
-            return self._must_get_run(run_id)
+            failed_run = self._must_get_run(run_id)
+            failed_run["from_cache"] = False
+            return failed_run
 
     def _must_get_run(self, run_id: int) -> dict:
         run = self._db.get_run(run_id)
@@ -248,6 +324,153 @@ class ParcelLookupRunner:
             f"across rings 0-{ring_count} with {run['owner_count']} unique owners."
         )
 
+    def _normalize_address_for_alias(self, address: str) -> str:
+        return " ".join(address.strip().upper().split())
+
+    def _upsert_aliases(self, *, seed: ParcelRecord, input_alias: str | None) -> None:
+        if not seed.parcel_id:
+            return
+
+        if input_alias:
+            self._db.upsert_address_alias(input_alias, seed.parcel_id)
+
+        site_alias = self._normalize_address_for_alias(seed.site_address)
+        if site_alias:
+            self._db.upsert_address_alias(site_alias, seed.parcel_id)
+
+    def _get_cached_run_for_address(
+        self,
+        *,
+        normalized_input: str,
+        rings_requested: int,
+        input_address: str,
+    ) -> dict | None:
+        parcel_id = self._db.resolve_address_alias(
+            normalized_input,
+            max_age_days=self._settings.retention_days,
+        )
+        if not parcel_id:
+            return None
+
+        cached = self._db.get_recent_run_for_seed_parcel(
+            seed_parcel_id=parcel_id,
+            min_rings=rings_requested,
+            max_age_days=self._settings.retention_days,
+        )
+        if cached is None:
+            return None
+
+        return self._build_cached_run_response(
+            cached_run=cached,
+            rings_requested=rings_requested,
+            input_label=input_address,
+            seed_parcel_id=parcel_id,
+        )
+
+    def _build_cached_run_response(
+        self,
+        *,
+        cached_run: dict,
+        rings_requested: int,
+        input_label: str,
+        seed_parcel_id: str,
+    ) -> dict:
+        trimmed = self._trim_run_to_rings(cached_run, rings_requested=rings_requested)
+        trimmed["input_address"] = input_label
+        trimmed["from_cache"] = True
+
+        base_summary = (trimmed.get("summary") or "").strip()
+        if base_summary:
+            trimmed["summary"] = f"{base_summary} Loaded from 30-day local cache."
+        else:
+            trimmed["summary"] = "Loaded from 30-day local cache."
+
+        logger.info(
+            "lookup_cache_hit seed_parcel=%s rings=%s source_run=%s",
+            seed_parcel_id,
+            rings_requested,
+            trimmed.get("id"),
+        )
+        return trimmed
+
+    def _resolve_seed_from_local_cache(self, *, lon: float, lat: float) -> ParcelRecord | None:
+        candidates = self._db.list_recent_cached_parcels(max_age_days=self._settings.retention_days)
+        for item in candidates:
+            geometry = item.get("geometry")
+            if not geometry:
+                continue
+            if self._point_in_geometry(lon=lon, lat=lat, geometry=geometry):
+                return ParcelRecord(
+                    parcel_id=str(item.get("parcel_id") or "").strip(),
+                    owner_name=str(item.get("owner_name") or "").strip(),
+                    site_address=str(item.get("site_address") or "").strip(),
+                    geometry=geometry,
+                    source=str(item.get("source") or "local_cache"),
+                    matched_by="local_cache_intersect",
+                )
+        return None
+
+    def _point_in_geometry(self, *, lon: float, lat: float, geometry: dict) -> bool:
+        if geometry.get("type") != "Polygon":
+            return False
+        coords = geometry.get("coordinates")
+        if not isinstance(coords, list) or not coords:
+            return False
+        return self._point_in_polygon(lon=lon, lat=lat, polygon_coords=coords)
+
+    def _point_in_polygon(
+        self,
+        *,
+        lon: float,
+        lat: float,
+        polygon_coords: list,
+    ) -> bool:
+        outer = polygon_coords[0] if polygon_coords else None
+        if not isinstance(outer, list) or not self._point_in_ring(lon=lon, lat=lat, ring=outer):
+            return False
+
+        for hole in polygon_coords[1:]:
+            if isinstance(hole, list) and self._point_in_ring(lon=lon, lat=lat, ring=hole):
+                return False
+        return True
+
+    def _point_in_ring(self, *, lon: float, lat: float, ring: list) -> bool:
+        inside = False
+        count = len(ring)
+        if count < 3:
+            return False
+
+        j = count - 1
+        for i in range(count):
+            xi, yi = ring[i][0], ring[i][1]
+            xj, yj = ring[j][0], ring[j][1]
+            intersects = ((yi > lat) != (yj > lat)) and (
+                lon < (xj - xi) * (lat - yi) / ((yj - yi) or 1e-12) + xi
+            )
+            if intersects:
+                inside = not inside
+            j = i
+        return inside
+
+    def _trim_run_to_rings(self, run: dict, *, rings_requested: int) -> dict:
+        trimmed = dict(run)
+        parcels = [
+            parcel
+            for parcel in run.get("parcels", [])
+            if int(parcel.get("ring_number", 0)) <= rings_requested
+        ]
+        trimmed["parcels"] = parcels
+        trimmed["rings_requested"] = rings_requested
+        trimmed["parcel_count"] = len(parcels)
+        trimmed["owner_count"] = len(
+            {
+                (parcel.get("normalized_owner_name") or parcel.get("owner_name") or "").strip().upper()
+                for parcel in parcels
+                if (parcel.get("normalized_owner_name") or parcel.get("owner_name"))
+            }
+        )
+        return trimmed
+
 
 def load_lookup_settings() -> LookupSettings:
     return LookupSettings(
@@ -255,4 +478,5 @@ def load_lookup_settings() -> LookupSettings:
         max_requests=int(os.getenv("MAX_REQUESTS_PER_RUN", "80")),
         adjacent_limit_per_parcel=int(os.getenv("ADJACENT_LIMIT_PER_PARCEL", "50")),
         max_llm_normalizations=int(os.getenv("MAX_LLM_NORMALIZATIONS", "25")),
+        retention_days=int(os.getenv("RETENTION_DAYS", "30")),
     )

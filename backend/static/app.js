@@ -20,6 +20,9 @@ const summaryEl = document.getElementById("summary");
 const csvLink = document.getElementById("csv-link");
 const geojsonLink = document.getElementById("geojson-link");
 const resultsBody = document.getElementById("results-body");
+const propertyLinksEl = document.getElementById("property-links");
+const linksContextEl = document.getElementById("links-context");
+const linkListEl = document.getElementById("link-list");
 
 const ringColors = {
   0: "#1a6f4b",
@@ -106,10 +109,85 @@ function renderTable(parcels) {
   }
 }
 
+function buildPropertyLinks(run, seedParcel) {
+  const parcelId = seedParcel?.parcel_id || "";
+  const siteAddress = seedParcel?.site_address || "";
+  const inputAddress = (run.input_address || "").startsWith("POINT(")
+    ? ""
+    : run.input_address || "";
+  const query = (inputAddress || siteAddress || parcelId).trim();
+  if (!query) {
+    return [];
+  }
+
+  const zillowQuery = `${query} Wright County MN`.trim();
+  const where = parcelId ? `PID='${parcelId.replace(/'/g, "''")}'` : "";
+
+  const links = [
+    {
+      label: "Open Zillow",
+      href: `https://www.zillow.com/homes/${encodeURIComponent(zillowQuery)}_rb/`,
+      primary: true,
+    },
+    {
+      label: "Open Realtor",
+      href: `https://www.realtor.com/realestateandhomes-search?query=${encodeURIComponent(
+        zillowQuery
+      )}`,
+      primary: false,
+    },
+    {
+      label: "Wright Property Search",
+      href: "https://propertyaccess.co.wright.mn.us/search/commonsearch.aspx?mode=combined",
+      primary: false,
+    },
+  ];
+
+  if (where) {
+    links.push({
+      label: "Wright Parcel JSON",
+      href:
+        "https://web.co.wright.mn.us/arcgisserver/rest/services/Wright_County_Parcels/MapServer/1/query" +
+        `?f=pjson&where=${encodeURIComponent(where)}&outFields=PID,OWNNAME,PHYSADDR&returnGeometry=true&outSR=4326`,
+      primary: false,
+    });
+  }
+
+  return links;
+}
+
+function renderPropertyLinks(run) {
+  const seedParcel = (run.parcels || []).find((parcel) => parcel.is_seed);
+  if (!seedParcel) {
+    propertyLinksEl.classList.add("hidden");
+    linkListEl.innerHTML = "";
+    linksContextEl.textContent = "";
+    return;
+  }
+
+  const displayAddress = seedParcel.site_address || run.input_address || "(unknown)";
+  linksContextEl.textContent = `${displayAddress} • Parcel ${seedParcel.parcel_id || "(n/a)"}`;
+
+  const links = buildPropertyLinks(run, seedParcel);
+  if (!links.length) {
+    propertyLinksEl.classList.add("hidden");
+    linkListEl.innerHTML = "";
+    return;
+  }
+
+  linkListEl.innerHTML = links
+    .map(
+      (link) =>
+        `<a class="link-chip${link.primary ? " primary" : ""}" href="${link.href}" target="_blank" rel="noopener">${link.label}</a>`
+    )
+    .join("");
+  propertyLinksEl.classList.remove("hidden");
+}
+
 function renderRun(run) {
   runMetaEl.classList.remove("hidden");
   runIdEl.textContent = run.id;
-  runStatusEl.textContent = run.status;
+  runStatusEl.textContent = run.from_cache ? `${run.status} (cache)` : run.status;
   parcelCountEl.textContent = run.parcel_count;
   ownerCountEl.textContent = run.owner_count;
   seedParcelEl.textContent = run.seed_parcel_id || "(none)";
@@ -126,6 +204,7 @@ function renderRun(run) {
     addressInput.value = detectedAddress;
   }
 
+  renderPropertyLinks(run);
   renderParcels(run.parcels || []);
   renderTable(run.parcels || []);
 }
@@ -158,9 +237,12 @@ async function runLookup() {
 
     renderRun(payload);
     const suffix = payload.status === "capped" ? " (capped by limits)" : "";
-    setStatus(`Run ${payload.id} complete${suffix}.`);
+    const cacheSuffix = payload.from_cache ? " (loaded from 30-day cache)" : "";
+    setStatus(`Run ${payload.id} complete${suffix}${cacheSuffix}.`);
   } catch (error) {
     runMetaEl.classList.add("hidden");
+    propertyLinksEl.classList.add("hidden");
+    linkListEl.innerHTML = "";
     clearMap();
     renderTable([]);
     setStatus(error.message || "Lookup failed.", true);
@@ -196,9 +278,12 @@ async function runLookupByPoint(lat, lon) {
 
     renderRun(payload);
     const suffix = payload.status === "capped" ? " (capped by limits)" : "";
-    setStatus(`Run ${payload.id} complete${suffix}.`);
+    const cacheSuffix = payload.from_cache ? " (loaded from 30-day cache)" : "";
+    setStatus(`Run ${payload.id} complete${suffix}${cacheSuffix}.`);
   } catch (error) {
     runMetaEl.classList.add("hidden");
+    propertyLinksEl.classList.add("hidden");
+    linkListEl.innerHTML = "";
     clearMap();
     renderTable([]);
     setStatus(error.message || "Lookup failed.", true);

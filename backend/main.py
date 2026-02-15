@@ -32,7 +32,7 @@ ROOT_DIR = Path(__file__).resolve().parent.parent
 STATIC_DIR = ROOT_DIR / "backend" / "static"
 DEFAULT_DB_PATH = ROOT_DIR / "data" / "app.db"
 
-app = FastAPI(title="ParcelPicker", version="0.5.3")
+app = FastAPI(title="ParcelPicker", version="0.5.6")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -114,6 +114,7 @@ class RunResponse(BaseModel):
     parcel_count: int
     owner_count: int
     parcels: list[ParcelResponse]
+    from_cache: bool = False
 
 
 @app.get("/")
@@ -291,6 +292,7 @@ def _to_run_response(run: dict[str, Any]) -> RunResponse:
         parcel_count=int(run.get("parcel_count", 0)),
         owner_count=int(run.get("owner_count", 0)),
         parcels=parcels,
+        from_cache=bool(run.get("from_cache", False)),
     )
 
 
