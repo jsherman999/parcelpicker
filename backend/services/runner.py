@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import os
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from time import perf_counter
 
@@ -42,18 +43,59 @@ class ParcelLookupRunner:
         rings_requested: int,
         use_llm: bool,
     ) -> dict:
+        return await self._run_lookup_core(
+            input_label=input_address,
+            rings_requested=rings_requested,
+            use_llm=use_llm,
+            not_found_error="No parcel match found for the provided address.",
+            seed_resolver=lambda budget: self._parcel_service.lookup(
+                input_address,
+                budget=budget,
+            ),
+        )
+
+    async def run_lookup_from_point(
+        self,
+        *,
+        lon: float,
+        lat: float,
+        rings_requested: int,
+        use_llm: bool,
+    ) -> dict:
+        input_label = f"POINT({lat:.6f}, {lon:.6f})"
+        return await self._run_lookup_core(
+            input_label=input_label,
+            rings_requested=rings_requested,
+            use_llm=use_llm,
+            not_found_error="No parcel found at clicked map location.",
+            seed_resolver=lambda budget: self._parcel_service.lookup_by_point(
+                lon=lon,
+                lat=lat,
+                budget=budget,
+            ),
+        )
+
+    async def _run_lookup_core(
+        self,
+        *,
+        input_label: str,
+        rings_requested: int,
+        use_llm: bool,
+        not_found_error: str,
+        seed_resolver: Callable[[RequestBudget], Awaitable[ParcelRecord | None]],
+    ) -> dict:
         llm_enabled = bool(use_llm and self._llm_service.is_available)
         run_id = self._db.create_run(
-            input_address=input_address,
+            input_address=input_label,
             rings_requested=rings_requested,
             provider="wright_county_arcgis",
             llm_enabled=llm_enabled,
         )
 
         logger.info(
-            "lookup_started run_id=%s address=%r rings=%s llm=%s",
+            "lookup_started run_id=%s input=%r rings=%s llm=%s",
             run_id,
-            input_address,
+            input_label,
             rings_requested,
             llm_enabled,
         )
@@ -62,14 +104,14 @@ class ParcelLookupRunner:
         started = perf_counter()
 
         try:
-            seed = await self._parcel_service.lookup(input_address, budget=budget)
+            seed = await seed_resolver(budget)
             if seed is None:
                 self._db.complete_run(
                     run_id,
                     status="not_found",
                     seed_parcel_id=None,
                     summary=None,
-                    error="No parcel match found for the provided address.",
+                    error=not_found_error,
                 )
                 return self._must_get_run(run_id)
             if not seed.parcel_id:
@@ -147,7 +189,7 @@ class ParcelLookupRunner:
             summary = self._deterministic_summary(run)
             if llm_enabled:
                 llm_summary = await self._llm_service.summarize_lookup(
-                    input_address=input_address,
+                    input_address=input_label,
                     rings_requested=rings_requested,
                     parcel_count=run["parcel_count"],
                     owner_count=run["owner_count"],

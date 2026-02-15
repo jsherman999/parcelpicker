@@ -4,6 +4,12 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>ParcelPicker - Wright County</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Sora:wght@600;700&display=swap"
+      rel="stylesheet"
+    />
     <link
       rel="stylesheet"
       href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
@@ -15,15 +21,20 @@
   <body>
     <main class="app-shell">
       <section class="panel controls">
+        <div class="brand-row">
+          <p class="kicker">Parcel Intelligence</p>
+          <span class="badge">LAN READY</span>
+        </div>
         <h1>ParcelPicker</h1>
-        <p class="subheading">Wright County, MN - Address to owner + adjacent rings</p>
+        <p class="subheading">Wright County, MN address -> owner -> adjacent parcel rings</p>
 
         <label for="address">Property Address</label>
         <input
           id="address"
           type="text"
-          placeholder="Example: 11800 48th St NE, St Michael, MN"
+          placeholder="Example: 4706 Mayer Ave NE St Michael MN 55376"
         />
+        <p class="hint">Best format: full street + city + state + ZIP for highest match rate.</p>
 
         <div class="row-options">
           <label for="rings">Rings</label>
@@ -61,6 +72,7 @@
       </section>
 
       <section class="panel map-panel">
+        <div class="map-hint">Click any parcel on the map to run lookup from that location.</div>
         <div id="map" aria-label="Parcel map"></div>
       </section>
 

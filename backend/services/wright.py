@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 from dataclasses import dataclass
 from time import monotonic
 from typing import Any
@@ -38,6 +39,13 @@ class ParcelRecord:
     geometry: dict[str, Any] | None
     source: str
     matched_by: str
+
+
+@dataclass(slots=True)
+class GeocodeResult:
+    lon: float
+    lat: float
+    matched_address: str
 
 
 class WrightParcelService:
@@ -85,13 +93,38 @@ class WrightParcelService:
         if geocoded is None:
             return None
 
-        lon, lat = geocoded
-        feature = await self._query_by_point(lon, lat, budget=budget)
+        street_only = self._extract_street_address(geocoded.matched_address)
+        if street_only and street_only != cleaned:
+            feature = await self._query_by_address(street_only, budget=budget)
+            if feature is not None:
+                record = self._feature_to_record(
+                    feature,
+                    matched_by="wright_address_from_census",
+                )
+                self._cache_record(cleaned, record)
+                self._cache_record(street_only, record)
+                return record
+
+        feature = await self._query_by_point(geocoded.lon, geocoded.lat, budget=budget)
         if feature is None:
             return None
 
         record = self._feature_to_record(feature, matched_by="census_point_intersect")
         self._cache_record(cleaned, record)
+        return record
+
+    async def lookup_by_point(
+        self,
+        *,
+        lon: float,
+        lat: float,
+        budget: RequestBudget,
+    ) -> ParcelRecord | None:
+        feature = await self._query_by_point(lon, lat, budget=budget)
+        if feature is None:
+            return None
+        record = self._feature_to_record(feature, matched_by="map_click_intersect")
+        self._cache_record(None, record)
         return record
 
     async def query_adjacent(
@@ -149,8 +182,9 @@ class WrightParcelService:
             },
             budget=budget,
         )
-        if features:
-            return features[0]
+        feature = self._first_feature_with_pid(features)
+        if feature is not None:
+            return feature
 
         contains_where = f"UPPER(PHYSADDR) LIKE '%{self._sql_escape(cleaned)}%'"
         features = await self._query_wright(
@@ -162,7 +196,7 @@ class WrightParcelService:
             },
             budget=budget,
         )
-        return features[0] if features else None
+        return self._first_feature_with_pid(features)
 
     async def _query_by_point(
         self,
@@ -184,7 +218,7 @@ class WrightParcelService:
             },
             budget=budget,
         )
-        return features[0] if features else None
+        return self._first_feature_with_pid(features)
 
     async def _query_wright(
         self,
@@ -204,7 +238,7 @@ class WrightParcelService:
         address: str,
         *,
         budget: RequestBudget,
-    ) -> tuple[float, float] | None:
+    ) -> GeocodeResult | None:
         params = {
             "address": address,
             "benchmark": "Public_AR_Current",
@@ -219,7 +253,12 @@ class WrightParcelService:
         y = coords.get("y")
         if x is None or y is None:
             return None
-        return float(x), float(y)
+        matched_address = str(matches[0].get("matchedAddress") or "").strip()
+        return GeocodeResult(
+            lon=float(x),
+            lat=float(y),
+            matched_address=matched_address,
+        )
 
     async def _get_json(
         self,
@@ -317,8 +356,29 @@ class WrightParcelService:
     def _normalize_address(self, address: str) -> str:
         return " ".join(address.strip().upper().split())
 
+    def _extract_street_address(self, matched_address: str) -> str | None:
+        if not matched_address:
+            return None
+        street_segment = matched_address.split(",", maxsplit=1)[0].strip()
+        if not street_segment:
+            return None
+        street_segment = self._normalize_address(street_segment)
+        street_segment = re.sub(r"\s+\d{5}(?:-\d{4})?$", "", street_segment).strip()
+        return street_segment or None
+
     def _sql_escape(self, value: str) -> str:
         return value.replace("'", "''")
+
+    def _first_feature_with_pid(
+        self,
+        features: list[dict[str, Any]],
+    ) -> dict[str, Any] | None:
+        for feature in features:
+            attrs = feature.get("attributes", {})
+            parcel_id = str(attrs.get("PID") or "").strip()
+            if parcel_id:
+                return feature
+        return None
 
     def _cache_record(self, normalized_address: str | None, record: ParcelRecord) -> None:
         if normalized_address:

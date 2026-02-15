@@ -9,6 +9,7 @@ Current implementation supports **Wright County, Minnesota** with the full plann
 3. SQLite persistence of runs and parcels.
 4. Run exports (`CSV`, `GeoJSON`) and provider safeguards (retry/rate-limit/request budgets).
 5. Optional LLM-assisted owner normalization and run summary (OpenAI or OpenRouter, feature-flagged).
+6. Map click lookup: click any map location to identify parcel and run ring expansion from that seed.
 
 ## Data Sources (MVP)
 
@@ -99,6 +100,23 @@ Request:
 
 Success response contains run metadata plus all parcel rows for the run.
 
+### `POST /api/lookup/point`
+
+Request:
+
+```json
+{
+  "lat": 45.2199,
+  "lon": -93.63298,
+  "rings": 1,
+  "use_llm": false
+}
+```
+
+- Uses point-intersect lookup against Wright parcels.
+- If a parcel is found at the clicked location, it becomes the seed for ring expansion.
+- Returns the same run payload structure as `POST /api/lookup`.
+
 ### `GET /api/runs?limit=20`
 
 List recent runs.
@@ -118,6 +136,7 @@ Download the run as GeoJSON FeatureCollection.
 ## Behavior Notes
 
 - Ring expansion uses `Touches` spatial relation against the current ring geometry set.
+- The web UI also supports map-click seeded lookups (uses `/api/lookup/point`).
 - Runs are bounded by request and parcel caps; capped runs return status `capped`.
 - LLM assistance is advisory and never used to invent parcel IDs or owners.
 - Owner normalization falls back to deterministic uppercase normalization when LLM is disabled/unavailable.

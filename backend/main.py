@@ -32,7 +32,7 @@ ROOT_DIR = Path(__file__).resolve().parent.parent
 STATIC_DIR = ROOT_DIR / "backend" / "static"
 DEFAULT_DB_PATH = ROOT_DIR / "data" / "app.db"
 
-app = FastAPI(title="ParcelPicker", version="0.5.0")
+app = FastAPI(title="ParcelPicker", version="0.5.3")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -76,6 +76,13 @@ lookup_runner = ParcelLookupRunner(
 
 class LookupRequest(BaseModel):
     address: str = Field(min_length=4, max_length=200)
+    rings: int = Field(default=0, ge=0, le=2)
+    use_llm: bool = False
+
+
+class PointLookupRequest(BaseModel):
+    lat: float = Field(ge=-90, le=90)
+    lon: float = Field(ge=-180, le=180)
     rings: int = Field(default=0, ge=0, le=2)
     use_llm: bool = False
 
@@ -135,6 +142,21 @@ async def provider_status() -> dict[str, Any]:
 async def lookup(request: LookupRequest) -> RunResponse:
     run = await lookup_runner.run_lookup(
         input_address=request.address,
+        rings_requested=request.rings,
+        use_llm=request.use_llm,
+    )
+    if run["status"] == "failed":
+        raise HTTPException(status_code=502, detail=run.get("error", "Lookup failed."))
+    if run["status"] == "not_found":
+        raise HTTPException(status_code=404, detail=run.get("error", "No parcel found."))
+    return _to_run_response(run)
+
+
+@app.post("/api/lookup/point", response_model=RunResponse)
+async def lookup_point(request: PointLookupRequest) -> RunResponse:
+    run = await lookup_runner.run_lookup_from_point(
+        lon=request.lon,
+        lat=request.lat,
         rings_requested=request.rings,
         use_llm=request.use_llm,
     )
@@ -276,6 +298,6 @@ if __name__ == "__main__":
     import uvicorn
 
     host = os.getenv("HOST", "0.0.0.0")
-    port = int(os.getenv("PORT", "8090"))
+    port = int(os.getenv("PORT", "8091"))
     logger.info("starting_parcelpicker host=%s port=%s", host, port)
     uvicorn.run("backend.main:app", host=host, port=port, reload=False)

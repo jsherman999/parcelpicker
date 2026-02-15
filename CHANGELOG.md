@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.3] - 2026-02-15
+
+### Added
+- Map click seeded lookup support in the frontend and API (`POST /api/lookup/point`).
+- Click-anywhere map workflow that identifies the parcel at the clicked coordinates and runs ring expansion.
+
+### Changed
+- Refactored lookup runner to share one pipeline for address-seeded and point-seeded runs.
+- Added point lookup method in Wright service (`lookup_by_point`) for clean map-click integration.
+
+## [0.5.2] - 2026-02-15
+
+### Changed
+- Improved address resolution for full user-entered addresses (including city/state/ZIP) by:
+- Adding a Census-matched street fallback before point intersect lookup.
+- Selecting only parcel features with non-empty parcel IDs from Wright query results.
+- Refreshed the frontend with a darker, higher-contrast visual theme and dark basemap tiles.
+
 ## [0.5.1] - 2026-02-14
 
 ### Changed

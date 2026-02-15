@@ -31,7 +31,7 @@ let layers = [];
 
 function setStatus(text, isError = false) {
   statusEl.textContent = text;
-  statusEl.style.color = isError ? "#8a1f1f" : "#5a6e65";
+  statusEl.style.color = isError ? "var(--error)" : "var(--muted)";
 }
 
 function setBusy(isBusy) {
@@ -57,6 +57,7 @@ function renderParcels(parcels) {
 
     const color = ringColors[parcel.ring_number] || "#6c6c6c";
     const layer = L.geoJSON(parcel.geometry, {
+      bubblingMouseEvents: false,
       style: {
         color,
         weight: parcel.is_seed ? 3 : 2,
@@ -160,9 +161,54 @@ async function runLookup() {
   }
 }
 
+async function runLookupByPoint(lat, lon) {
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+    return;
+  }
+
+  setBusy(true);
+  setStatus(`Running lookup at ${lat.toFixed(5)}, ${lon.toFixed(5)}...`);
+
+  try {
+    const response = await fetch("/api/lookup/point", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        lat,
+        lon,
+        rings: Number(ringsInput.value),
+        use_llm: Boolean(useLlmInput.checked),
+      }),
+    });
+
+    const payload = await response.json();
+    if (!response.ok) {
+      throw new Error(payload.detail || "Lookup failed.");
+    }
+
+    renderRun(payload);
+    const suffix = payload.status === "capped" ? " (capped by limits)" : "";
+    setStatus(`Run ${payload.id} complete${suffix}.`);
+  } catch (error) {
+    runMetaEl.classList.add("hidden");
+    clearMap();
+    renderTable([]);
+    setStatus(error.message || "Lookup failed.", true);
+  } finally {
+    setBusy(false);
+  }
+}
+
 lookupButton.addEventListener("click", runLookup);
 addressInput.addEventListener("keydown", (event) => {
   if (event.key === "Enter") {
     runLookup();
   }
+});
+
+map.on("click", (event) => {
+  if (lookupButton.disabled) {
+    return;
+  }
+  runLookupByPoint(event.latlng.lat, event.latlng.lng);
 });
