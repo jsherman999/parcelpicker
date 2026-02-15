@@ -9,6 +9,7 @@ __pycache__/
 coverage.xml
 htmlcov/
 data/
+logs/
 data/*.db
 data/*.sqlite
 data/*.sqlite3
