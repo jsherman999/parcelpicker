@@ -9,6 +9,7 @@ const addressInput = document.getElementById("address");
 const ringsInput = document.getElementById("rings");
 const useLlmInput = document.getElementById("use-llm");
 const lookupButton = document.getElementById("lookup");
+const locateMeButton = document.getElementById("locate-me");
 const statusEl = document.getElementById("status");
 const runMetaEl = document.getElementById("run-meta");
 const runIdEl = document.getElementById("run-id");
@@ -31,6 +32,7 @@ const ringColors = {
 };
 
 let layers = [];
+let userLocationMarker = null;
 
 function setStatus(text, isError = false) {
   statusEl.textContent = text;
@@ -39,6 +41,7 @@ function setStatus(text, isError = false) {
 
 function setBusy(isBusy) {
   lookupButton.disabled = isBusy;
+  locateMeButton.disabled = isBusy;
   lookupButton.textContent = isBusy ? "Running..." : "Run Lookup";
 }
 
@@ -305,3 +308,52 @@ map.on("click", (event) => {
   }
   runLookupByPoint(event.latlng.lat, event.latlng.lng);
 });
+
+function locateMe() {
+  if (!navigator.geolocation) {
+    setStatus("Geolocation is not supported by this browser.", true);
+    return;
+  }
+
+  setBusy(true);
+  setStatus("Requesting your location...");
+
+  navigator.geolocation.getCurrentPosition(
+    (position) => {
+      const lat = position.coords.latitude;
+      const lon = position.coords.longitude;
+
+      // Show user location on map
+      if (userLocationMarker) {
+        map.removeLayer(userLocationMarker);
+      }
+      userLocationMarker = L.circleMarker([lat, lon], {
+        radius: 8,
+        color: "#ff3b6f",
+        fillColor: "#ff3b6f",
+        fillOpacity: 0.85,
+        weight: 2,
+      })
+        .addTo(map)
+        .bindPopup("Your location");
+
+      // Default to 2-ring scan for geo-located lookups
+      ringsInput.value = "2";
+
+      setBusy(false);
+      runLookupByPoint(lat, lon);
+    },
+    (error) => {
+      setBusy(false);
+      const messages = {
+        1: "Location permission denied. Allow location access and try again.",
+        2: "Location unavailable. Make sure GPS/location services are enabled.",
+        3: "Location request timed out. Try again.",
+      };
+      setStatus(messages[error.code] || "Could not determine location.", true);
+    },
+    { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 }
+  );
+}
+
+locateMeButton.addEventListener("click", locateMe);

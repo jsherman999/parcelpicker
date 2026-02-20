@@ -171,6 +171,18 @@ input::placeholder {
 
 .lookup-row {
   margin-top: 0.9rem;
+  display: flex;
+  gap: 0.6rem;
+}
+
+#locate-me {
+  border: 1px solid rgba(255, 59, 111, 0.55);
+  background: linear-gradient(135deg, rgba(180, 40, 90, 0.9), rgba(160, 50, 140, 0.9));
+  box-shadow: 0 12px 24px rgba(160, 40, 100, 0.28);
+}
+
+#locate-me:hover {
+  box-shadow: 0 16px 30px rgba(160, 40, 100, 0.34);
 }
 
 button {
