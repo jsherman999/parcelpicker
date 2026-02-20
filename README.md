@@ -12,6 +12,7 @@ Current implementation supports **Wright County, Minnesota** with the full plann
 6. Map click lookup: click any map location to identify parcel and run ring expansion from that seed.
 7. 30-day persistent parcel cache for immediate repeat lookup responses.
 8. Property Links panel with Zillow-first external links and Realtor/county fallbacks.
+9. **Locate Me**: phone geolocation via browser GPS — auto-runs a 2-ring scan from your current position.
 
 ## Data Sources (MVP)
 
@@ -45,6 +46,27 @@ python -m uvicorn backend.main:app --host 0.0.0.0 --port 8091 --reload
 
 - Same machine: [http://127.0.0.1:8091](http://127.0.0.1:8091)
 - LAN device: `http://<your-mac-lan-ip>:8091`
+
+### Remote Access via Tailscale (iPhone / off-network)
+
+[Tailscale](https://tailscale.com/) creates a private WireGuard mesh network so your iPhone can reach the Mac from anywhere — no port-forwarding or public exposure needed.
+
+1. Install Tailscale on both your Mac and iPhone and sign in to the same Tailnet.
+2. Find your Mac's Tailscale IP (`100.x.x.x`) in the Tailscale admin console or via `tailscale ip -4`.
+3. Open `http://100.x.x.x:8091` in Safari on the iPhone.
+
+**HTTPS for Geolocation (required by iOS Safari):**
+
+The browser Geolocation API requires a [secure context](https://developer.mozilla.org/en-US/docs/Web/Security/Secure_Contexts). Safari on iOS will block `navigator.geolocation` over plain `http://` to a Tailscale IP. To fix this, enable Tailscale HTTPS:
+
+```bash
+# On the Mac — enable MagicDNS + HTTPS in the Tailscale admin console first, then:
+tailscale cert <your-mac-hostname>.<tailnet-name>.ts.net
+```
+
+Then access ParcelPicker at `https://<your-mac-hostname>.<tailnet-name>.ts.net:8091`. The Locate Me button will work with full GPS accuracy.
+
+Alternatively, Tailscale Funnel can expose the app with a public TLS URL if you want to skip local cert setup, but Funnel makes the app reachable from the open internet — use with caution.
 
 ## Environment Configuration
 
@@ -142,7 +164,8 @@ Download the run as GeoJSON FeatureCollection.
 
 - Ring expansion uses `Touches` spatial relation against the current ring geometry set.
 - The web UI also supports map-click seeded lookups (uses `/api/lookup/point`).
-- After a successful map-click lookup, the seed parcel address is auto-populated into the Property Address field.
+- The **Locate Me** button uses the browser Geolocation API to get the device's GPS position, places a marker on the map, auto-sets rings to 2, and runs a point lookup at that location. This is designed for mobile use via Tailscale — tap the button on your iPhone to scan the parcel you're standing on plus two rings of neighbors.
+- After a successful map-click or geo-located lookup, the seed parcel address is auto-populated into the Property Address field.
 - Repeat lookups for known parcels are served from local cache when available within 30 days.
 - The web UI shows a Property Links panel for the selected seed parcel:
 - Zillow link first, then Realtor and county/public fallback links.

@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.0] - 2026-02-20
+
+### Added
+- **Locate Me** button in the web UI for phone-based geolocation lookups.
+- Uses browser Geolocation API (`navigator.geolocation`) to get GPS position.
+- Auto-sets rings to 2 and runs a point lookup at the device's current coordinates.
+- Displays a pink circle marker on the map at the user's location.
+- Clear error messages for permission denied, GPS unavailable, and timeout states.
+- Tailscale remote access documentation in README with HTTPS setup instructions for iOS Safari geolocation support.
+
 ## [0.5.6] - 2026-02-15
 
 ### Added
