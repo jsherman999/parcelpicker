@@ -7,8 +7,8 @@ from dataclasses import dataclass
 from time import perf_counter
 
 from backend.db import ParcelDatabase
+from backend.services.base import BaseParcelService, ParcelRecord, RequestBudget
 from backend.services.llm import LLMService
-from backend.services.wright import ParcelRecord, RequestBudget, WrightParcelService
 
 
 logger = logging.getLogger(__name__)
@@ -29,7 +29,7 @@ class ParcelLookupRunner:
         self,
         *,
         db: ParcelDatabase,
-        parcel_service: WrightParcelService,
+        parcel_service: BaseParcelService,
         llm_service: LLMService,
         settings: LookupSettings,
     ) -> None:
@@ -37,6 +37,7 @@ class ParcelLookupRunner:
         self._parcel_service = parcel_service
         self._llm_service = llm_service
         self._settings = settings
+        self._provider = parcel_service.source_label
 
     async def run_lookup(
         self,
@@ -155,16 +156,17 @@ class ParcelLookupRunner:
         run_id = self._db.create_run(
             input_address=input_label,
             rings_requested=rings_requested,
-            provider="wright_county_arcgis",
+            provider=self._provider,
             llm_enabled=llm_enabled,
         )
 
         logger.info(
-            "lookup_started run_id=%s input=%r rings=%s llm=%s",
+            "lookup_started run_id=%s input=%r rings=%s llm=%s provider=%s",
             run_id,
             input_label,
             rings_requested,
             llm_enabled,
+            self._provider,
         )
 
         budget = RequestBudget(max_requests=self._settings.max_requests)

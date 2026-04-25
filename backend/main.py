@@ -17,7 +17,7 @@ from pydantic import BaseModel, Field
 from backend.db import ParcelDatabase
 from backend.services.llm import LLMConfig, LLMService
 from backend.services.runner import ParcelLookupRunner, load_lookup_settings
-from backend.services.wright import WrightParcelService
+from backend.services.registry import create_service, COUNTY_LABELS
 
 
 load_dotenv()
@@ -32,7 +32,8 @@ ROOT_DIR = Path(__file__).resolve().parent.parent
 STATIC_DIR = ROOT_DIR / "backend" / "static"
 DEFAULT_DB_PATH = ROOT_DIR / "data" / "app.db"
 
-app = FastAPI(title="ParcelPicker", version="0.5.6")
+
+app = FastAPI(title="ParcelPicker", version="0.6.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -60,24 +61,38 @@ llm_service = LLMService(
         enabled=_env_bool("ENABLE_LLM_ASSIST", False),
     )
 )
-parcel_service = WrightParcelService(
-    timeout_seconds=float(os.getenv("REQUEST_TIMEOUT_SECONDS", "20")),
-    max_retries=int(os.getenv("REQUEST_RETRIES", "2")),
-    retry_backoff_seconds=float(os.getenv("RETRY_BACKOFF_SECONDS", "0.8")),
-    min_interval_seconds=float(os.getenv("MIN_REQUEST_INTERVAL_SECONDS", "0.15")),
-)
-lookup_runner = ParcelLookupRunner(
-    db=db,
-    parcel_service=parcel_service,
-    llm_service=llm_service,
-    settings=load_lookup_settings(),
-)
+settings = load_lookup_settings()
+
+_service_timeout = float(os.getenv("REQUEST_TIMEOUT_SECONDS", "20"))
+_service_retries = int(os.getenv("REQUEST_RETRIES", "2"))
+_service_backoff = float(os.getenv("RETRY_BACKOFF_SECONDS", "0.8"))
+_service_interval = float(os.getenv("MIN_REQUEST_INTERVAL_SECONDS", "0.15"))
+
+_parcel_services: dict[str, Any] = {}
+for county_key in ["wright", "hennepin", "stlouis"]:
+    _parcel_services[county_key] = create_service(
+        county_key,
+        timeout_seconds=_service_timeout,
+        max_retries=_service_retries,
+        retry_backoff_seconds=_service_backoff,
+        min_interval_seconds=_service_interval,
+    )
+
+_runners: dict[str, ParcelLookupRunner] = {}
+for county_key, svc in _parcel_services.items():
+    _runners[county_key] = ParcelLookupRunner(
+        db=db,
+        parcel_service=svc,
+        llm_service=llm_service,
+        settings=settings,
+    )
 
 
 class LookupRequest(BaseModel):
     address: str = Field(min_length=4, max_length=200)
     rings: int = Field(default=0, ge=0, le=2)
     use_llm: bool = False
+    county: str = Field(default="wright", min_length=1, max_length=30)
 
 
 class PointLookupRequest(BaseModel):
@@ -85,6 +100,7 @@ class PointLookupRequest(BaseModel):
     lon: float = Field(ge=-180, le=180)
     rings: int = Field(default=0, ge=0, le=2)
     use_llm: bool = False
+    county: str = Field(default="wright", min_length=1, max_length=30)
 
 
 class ParcelResponse(BaseModel):
@@ -117,6 +133,16 @@ class RunResponse(BaseModel):
     from_cache: bool = False
 
 
+def _get_runner(county: str) -> ParcelLookupRunner:
+    runner = _runners.get(county)
+    if runner is None:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unknown county: {county}. Options: {list(_runners.keys())}",
+        )
+    return runner
+
+
 @app.get("/")
 async def index() -> FileResponse:
     return FileResponse(STATIC_DIR / "index.html")
@@ -130,7 +156,10 @@ async def health() -> dict[str, str]:
 @app.get("/api/providers/status")
 async def provider_status() -> dict[str, Any]:
     return {
-        "parcel_provider": "wright_county_arcgis",
+        "counties": [
+            {"id": key, "label": COUNTY_LABELS.get(key, key)}
+            for key in _runners.keys()
+        ],
         "llm": {
             "enabled": llm_service.is_available,
             "configured_provider": os.getenv("LLM_PROVIDER", "openai"),
@@ -141,7 +170,8 @@ async def provider_status() -> dict[str, Any]:
 
 @app.post("/api/lookup", response_model=RunResponse)
 async def lookup(request: LookupRequest) -> RunResponse:
-    run = await lookup_runner.run_lookup(
+    runner = _get_runner(request.county)
+    run = await runner.run_lookup(
         input_address=request.address,
         rings_requested=request.rings,
         use_llm=request.use_llm,
@@ -155,7 +185,8 @@ async def lookup(request: LookupRequest) -> RunResponse:
 
 @app.post("/api/lookup/point", response_model=RunResponse)
 async def lookup_point(request: PointLookupRequest) -> RunResponse:
-    run = await lookup_runner.run_lookup_from_point(
+    runner = _get_runner(request.county)
+    run = await runner.run_lookup_from_point(
         lon=request.lon,
         lat=request.lat,
         rings_requested=request.rings,
