@@ -1,15 +1,58 @@
-const map = L.map("map").setView([45.2, -93.95], 11);
-L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-  maxZoom: 20,
-  attribution:
-    '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-}).addTo(map);
+const countyConfig = {
+  wright: {
+    label: "Wright County",
+    center: [45.2, -93.95],
+    zoom: 11,
+    placeholder: "Example: 4706 Mayer Ave NE St Michael MN 55376",
+    propertySearch: {
+      label: "Wright Property Search",
+      href: "https://propertyaccess.co.wright.mn.us/search/commonsearch.aspx?mode=combined",
+    },
+    arcgisJsonBase:
+      "https://web.co.wright.mn.us/arcgisserver/rest/services/Wright_County_Parcels/MapServer/1/query",
+    arcgisJsonFields: "PID,OWNNAME,PHYSADDR",
+    arcgisJsonIdField: "PID",
+    zillowSuffix: "Wright County MN",
+  },
+  hennepin: {
+    label: "Hennepin County",
+    center: [44.98, -93.27],
+    zoom: 12,
+    placeholder: "Example: 1945 Drew Ave S Minneapolis MN 55416",
+    propertySearch: {
+      label: "Hennepin Property Map",
+      href: "https://gis.hennepin.us/property/map/",
+    },
+    arcgisJsonBase:
+      "https://gis.hennepin.us/arcgis/rest/services/HennepinData/LAND_PROPERTY/MapServer/1/query",
+    arcgisJsonFields: "PID,OWNER_NM,HOUSE_NO,STREET_NM,MAILING_MUNIC_NM,ZIP_CD",
+    arcgisJsonIdField: "PID",
+    zillowSuffix: "Hennepin County MN",
+  },
+  stlouis: {
+    label: "St. Louis County",
+    center: [46.79, -92.10],
+    zoom: 10,
+    placeholder: "Example: 121 Hawthorne Rd Duluth MN 55812",
+    propertySearch: {
+      label: "St. Louis County Property",
+      href: "https://www.stlouiscountymn.gov/departments-a-z/assessor/property-information",
+    },
+    arcgisJsonBase:
+      "https://gis.stlouiscountymn.gov/server2/rest/services/GeneralUse/Cadastral/MapServer/23/query",
+    arcgisJsonFields: "PRCL_NBR,OWNAME,PHYSADDR,PHYSCITY,PHYSZIP",
+    arcgisJsonIdField: "PRCL_NBR",
+    zillowSuffix: "St. Louis County MN",
+  },
+};
 
+const countySelect = document.getElementById("county");
 const addressInput = document.getElementById("address");
 const ringsInput = document.getElementById("rings");
 const useLlmInput = document.getElementById("use-llm");
 const lookupButton = document.getElementById("lookup");
 const statusEl = document.getElementById("status");
+const subheadingEl = document.getElementById("subheading");
 const runMetaEl = document.getElementById("run-meta");
 const runIdEl = document.getElementById("run-id");
 const runStatusEl = document.getElementById("run-status");
@@ -31,6 +74,34 @@ const ringColors = {
 };
 
 let layers = [];
+
+function getCounty() {
+  return countySelect.value || "wright";
+}
+
+function getCountyConfig() {
+  return countyConfig[getCounty()] || countyConfig.wright;
+}
+
+const map = L.map("map").setView(
+  getCountyConfig().center,
+  getCountyConfig().zoom
+);
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+  maxZoom: 20,
+  attribution:
+    '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+}).addTo(map);
+
+function applyCounty() {
+  const cfg = getCountyConfig();
+  subheadingEl.textContent = cfg.label + " address \u2192 owner \u2192 adjacent parcel rings";
+  addressInput.placeholder = cfg.placeholder;
+  map.setView(cfg.center, cfg.zoom);
+}
+
+countySelect.addEventListener("change", applyCounty);
+applyCounty();
 
 function setStatus(text, isError = false) {
   statusEl.textContent = text;
@@ -110,6 +181,7 @@ function renderTable(parcels) {
 }
 
 function buildPropertyLinks(run, seedParcel) {
+  const cfg = getCountyConfig();
   const parcelId = seedParcel?.parcel_id || "";
   const siteAddress = seedParcel?.site_address || "";
   const inputAddress = (run.input_address || "").startsWith("POINT(")
@@ -120,8 +192,10 @@ function buildPropertyLinks(run, seedParcel) {
     return [];
   }
 
-  const zillowQuery = `${query} Wright County MN`.trim();
-  const where = parcelId ? `PID='${parcelId.replace(/'/g, "''")}'` : "";
+  const zillowQuery = `${query} ${cfg.zillowSuffix}`;
+  const where = parcelId
+    ? `${cfg.arcgisJsonIdField}='${parcelId.replace(/'/g, "''")}'`
+    : "";
 
   const links = [
     {
@@ -137,18 +211,18 @@ function buildPropertyLinks(run, seedParcel) {
       primary: false,
     },
     {
-      label: "Wright Property Search",
-      href: "https://propertyaccess.co.wright.mn.us/search/commonsearch.aspx?mode=combined",
+      label: cfg.propertySearch.label,
+      href: cfg.propertySearch.href,
       primary: false,
     },
   ];
 
   if (where) {
     links.push({
-      label: "Wright Parcel JSON",
+      label: `${cfg.label} Parcel JSON`,
       href:
-        "https://web.co.wright.mn.us/arcgisserver/rest/services/Wright_County_Parcels/MapServer/1/query" +
-        `?f=pjson&where=${encodeURIComponent(where)}&outFields=PID,OWNNAME,PHYSADDR&returnGeometry=true&outSR=4326`,
+        cfg.arcgisJsonBase +
+        `?f=pjson&where=${encodeURIComponent(where)}&outFields=${cfg.arcgisJsonFields}&returnGeometry=true&outSR=4326`,
       primary: false,
     });
   }
@@ -196,8 +270,6 @@ function renderRun(run) {
   csvLink.href = `/api/runs/${run.id}/csv`;
   geojsonLink.href = `/api/runs/${run.id}/geojson`;
 
-  // If the run came from a map click, preload the detected parcel address so
-  // the normal address-based "Run Lookup" flow can be used immediately.
   const seedParcel = (run.parcels || []).find((parcel) => parcel.is_seed);
   const detectedAddress = (seedParcel && seedParcel.site_address) || "";
   if (detectedAddress && String(run.input_address || "").startsWith("POINT(")) {
@@ -227,6 +299,7 @@ async function runLookup() {
         address,
         rings: Number(ringsInput.value),
         use_llm: Boolean(useLlmInput.checked),
+        county: getCounty(),
       }),
     });
 
@@ -268,6 +341,7 @@ async function runLookupByPoint(lat, lon) {
         lon,
         rings: Number(ringsInput.value),
         use_llm: Boolean(useLlmInput.checked),
+        county: getCounty(),
       }),
     });
 

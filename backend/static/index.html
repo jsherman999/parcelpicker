@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>ParcelPicker - Wright County</title>
+    <title>ParcelPicker - MN County Parcel Intelligence</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -26,7 +26,16 @@
           <span class="badge">LAN READY</span>
         </div>
         <h1>ParcelPicker</h1>
-        <p class="subheading">Wright County, MN address -> owner -> adjacent parcel rings</p>
+        <p id="subheading" class="subheading">MN County address -> owner -> adjacent parcel rings</p>
+
+        <div class="row-options">
+          <label for="county">County</label>
+          <select id="county">
+            <option value="wright">Wright County</option>
+            <option value="hennepin">Hennepin County</option>
+            <option value="stlouis">St. Louis County</option>
+          </select>
+        </div>
 
         <label for="address">Property Address</label>
         <input
