@@ -8,7 +8,8 @@ from time import perf_counter
 
 from backend.db import ParcelDatabase
 from backend.services.llm import LLMService
-from backend.services.wright import ParcelRecord, RequestBudget, WrightParcelService
+from backend.services.provider import ParcelRecord, RequestBudget
+from backend.services.wright import WrightParcelService
 
 
 logger = logging.getLogger(__name__)
@@ -155,7 +156,7 @@ class ParcelLookupRunner:
         run_id = self._db.create_run(
             input_address=input_label,
             rings_requested=rings_requested,
-            provider="wright_county_arcgis",
+            provider=self._parcel_service.name,
             llm_enabled=llm_enabled,
         )
 

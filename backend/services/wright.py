@@ -3,11 +3,17 @@ from __future__ import annotations
 import asyncio
 import json
 import re
-from dataclasses import dataclass
 from time import monotonic
 from typing import Any
 
 import httpx
+
+from backend.services.provider import (
+    GeocodeResult,
+    ParcelProvider,
+    ParcelRecord,
+    RequestBudget,
+)
 
 
 WRIGHT_QUERY_URL = (
@@ -17,38 +23,7 @@ WRIGHT_QUERY_URL = (
 CENSUS_GEOCODE_URL = "https://geocoding.geo.census.gov/geocoder/locations/onelineaddress"
 
 
-@dataclass(slots=True)
-class RequestBudget:
-    max_requests: int
-    used_requests: int = 0
-
-    def consume(self) -> None:
-        self.used_requests += 1
-        if self.used_requests > self.max_requests:
-            raise RuntimeError(
-                "Request budget exceeded while querying parcel providers. "
-                "Increase MAX_REQUESTS_PER_RUN if needed."
-            )
-
-
-@dataclass(slots=True)
-class ParcelRecord:
-    parcel_id: str
-    owner_name: str
-    site_address: str
-    geometry: dict[str, Any] | None
-    source: str
-    matched_by: str
-
-
-@dataclass(slots=True)
-class GeocodeResult:
-    lon: float
-    lat: float
-    matched_address: str
-
-
-class WrightParcelService:
+class WrightParcelService(ParcelProvider):
     def __init__(
         self,
         *,
@@ -68,6 +43,18 @@ class WrightParcelService:
 
         self._address_cache: dict[str, ParcelRecord] = {}
         self._parcel_cache: dict[str, ParcelRecord] = {}
+
+    @property
+    def name(self) -> str:
+        return "wright_county_arcgis"
+
+    async def geocode_address(
+        self,
+        address: str,
+        *,
+        budget: RequestBudget,
+    ) -> GeocodeResult | None:
+        return await self._geocode_with_census(address, budget=budget)
 
     async def lookup(
         self,
