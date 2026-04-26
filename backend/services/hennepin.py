@@ -1,0 +1,430 @@
+from __future__ import annotations
+
+import asyncio
+import json
+import re
+from time import monotonic
+from typing import Any
+
+import httpx
+
+from backend.services.provider import (
+    GeocodeResult,
+    ParcelProvider,
+    ParcelRecord,
+    RequestBudget,
+)
+
+
+HENNEPIN_QUERY_URL = (
+    "https://gis.hennepin.us/arcgis/rest/services/"
+    "HennepinData/LAND_PROPERTY/MapServer/1/query"
+)
+CENSUS_GEOCODE_URL = "https://geocoding.geo.census.gov/geocoder/locations/onelineaddress"
+
+# Fields available in the Hennepin County parcel layer
+# Parcel ID: PID (13-char string)
+# Owner: OWNER_NM
+# Address: HOUSE_NO + STREET_NM + MUNIC_NM + ZIP_CD
+HENNEPIN_OUT_FIELDS = "PID,OWNER_NM,HOUSE_NO,STREET_NM,MUNIC_NM,ZIP_CD"
+
+
+class HennepinParcelProvider(ParcelProvider):
+    def __init__(
+        self,
+        *,
+        client: httpx.AsyncClient | None = None,
+        timeout_seconds: float = 20.0,
+        max_retries: int = 2,
+        retry_backoff_seconds: float = 0.8,
+        min_interval_seconds: float = 0.15,
+    ) -> None:
+        self._external_client = client
+        self._timeout_seconds = timeout_seconds
+        self._max_retries = max_retries
+        self._retry_backoff_seconds = retry_backoff_seconds
+        self._min_interval_seconds = min_interval_seconds
+        self._throttle_lock = asyncio.Lock()
+        self._last_request_at = 0.0
+
+        self._address_cache: dict[str, ParcelRecord] = {}
+        self._parcel_cache: dict[str, ParcelRecord] = {}
+
+    @property
+    def name(self) -> str:
+        return "hennepin_county_arcgis"
+
+    async def geocode_address(
+        self,
+        address: str,
+        *,
+        budget: RequestBudget,
+    ) -> GeocodeResult | None:
+        return await self._geocode_with_census(address, budget=budget)
+
+    async def lookup(
+        self,
+        address: str,
+        *,
+        budget: RequestBudget,
+    ) -> ParcelRecord | None:
+        cleaned = self._normalize_address(address)
+        if not cleaned:
+            raise ValueError("Address must not be empty.")
+
+        cached = self._address_cache.get(cleaned)
+        if cached is not None:
+            return cached
+
+        feature = await self._query_by_address(cleaned, budget=budget)
+        if feature is not None:
+            record = self._feature_to_record(feature, matched_by="hennepin_address")
+            self._cache_record(cleaned, record)
+            return record
+
+        geocoded = await self._geocode_with_census(cleaned, budget=budget)
+        if geocoded is None:
+            return None
+
+        street_only = self._extract_street_address(geocoded.matched_address)
+        if street_only and street_only != cleaned:
+            feature = await self._query_by_address(street_only, budget=budget)
+            if feature is not None:
+                record = self._feature_to_record(
+                    feature,
+                    matched_by="hennepin_address_from_census",
+                )
+                self._cache_record(cleaned, record)
+                self._cache_record(street_only, record)
+                return record
+
+        feature = await self._query_by_point(geocoded.lon, geocoded.lat, budget=budget)
+        if feature is None:
+            return None
+
+        record = self._feature_to_record(feature, matched_by="census_point_intersect")
+        self._cache_record(cleaned, record)
+        return record
+
+    async def lookup_by_point(
+        self,
+        *,
+        lon: float,
+        lat: float,
+        budget: RequestBudget,
+    ) -> ParcelRecord | None:
+        feature = await self._query_by_point(lon, lat, budget=budget)
+        if feature is None:
+            return None
+        record = self._feature_to_record(feature, matched_by="map_click_intersect")
+        self._cache_record(None, record)
+        return record
+
+    async def query_adjacent(
+        self,
+        geometry: dict[str, Any] | None,
+        *,
+        budget: RequestBudget,
+        exclude_ids: set[str],
+        limit: int,
+    ) -> list[ParcelRecord]:
+        if not geometry:
+            return []
+
+        esri_geometry = self._to_esri_polygon(geometry)
+        if esri_geometry is None:
+            return []
+
+        features = await self._query_hennepin(
+            {
+                "where": "1=1",
+                "geometry": json.dumps(esri_geometry),
+                "geometryType": "esriGeometryPolygon",
+                "spatialRel": "esriSpatialRelTouches",
+                "inSR": "4326",
+                "outFields": HENNEPIN_OUT_FIELDS,
+                "returnGeometry": "true",
+                "outSR": "4326",
+                "resultRecordCount": str(limit),
+            },
+            budget=budget,
+        )
+
+        neighbors: list[ParcelRecord] = []
+        for feature in features:
+            record = self._feature_to_record(feature, matched_by="hennepin_touches")
+            if not record.parcel_id or record.parcel_id in exclude_ids:
+                continue
+            neighbors.append(record)
+            self._cache_record(None, record)
+        return neighbors
+
+    async def _query_by_address(
+        self,
+        cleaned: str,
+        *,
+        budget: RequestBudget,
+    ) -> dict[str, Any] | None:
+        # Build a composite address string matching Hennepin's PHYSADDR-style
+        # The Hennepin layer stores addresses as individual fields, so we query
+        # by matching house number + street name pattern
+        house, street = self._parse_address_components(cleaned)
+
+        if house and street:
+            where = (
+                f"HOUSE_NO = '{self._sql_escape(house)}' "
+                f"AND UPPER(STREET_NM) LIKE '%{self._sql_escape(street)}%'"
+            )
+        elif house:
+            where = f"HOUSE_NO = '{self._sql_escape(house)}'"
+        elif street:
+            where = f"UPPER(STREET_NM) LIKE '%{self._sql_escape(street)}%'"
+        else:
+            where = "1=1"
+
+        features = await self._query_hennepin(
+            {
+                "where": where,
+                "outFields": HENNEPIN_OUT_FIELDS,
+                "returnGeometry": "true",
+                "outSR": "4326",
+            },
+            budget=budget,
+        )
+        feature = self._first_feature_with_pid(features)
+        if feature is not None:
+            return feature
+
+        # Fuzzy: try just the street name
+        if street:
+            features = await self._query_hennepin(
+                {
+                    "where": f"UPPER(STREET_NM) LIKE '%{self._sql_escape(street)}%'",
+                    "outFields": HENNEPIN_OUT_FIELDS,
+                    "returnGeometry": "true",
+                    "outSR": "4326",
+                },
+                budget=budget,
+            )
+            return self._first_feature_with_pid(features)
+
+        return None
+
+    async def _query_by_point(
+        self,
+        lon: float,
+        lat: float,
+        *,
+        budget: RequestBudget,
+    ) -> dict[str, Any] | None:
+        features = await self._query_hennepin(
+            {
+                "where": "1=1",
+                "geometry": f"{lon},{lat}",
+                "geometryType": "esriGeometryPoint",
+                "spatialRel": "esriSpatialRelIntersects",
+                "inSR": "4326",
+                "outFields": HENNEPIN_OUT_FIELDS,
+                "returnGeometry": "true",
+                "outSR": "4326",
+            },
+            budget=budget,
+        )
+        return self._first_feature_with_pid(features)
+
+    async def _query_hennepin(
+        self,
+        params: dict[str, str],
+        *,
+        budget: RequestBudget,
+    ) -> list[dict[str, Any]]:
+        payload = {"f": "json", **params}
+        data = await self._get_json(HENNEPIN_QUERY_URL, payload, budget=budget)
+        if "error" in data:
+            message = data["error"].get("message", "ArcGIS query error")
+            raise RuntimeError(f"Hennepin County parcel query failed: {message}")
+        return data.get("features", [])
+
+    async def _geocode_with_census(
+        self,
+        address: str,
+        *,
+        budget: RequestBudget,
+    ) -> GeocodeResult | None:
+        params = {
+            "address": address,
+            "benchmark": "Public_AR_Current",
+            "format": "json",
+        }
+        data = await self._get_json(CENSUS_GEOCODE_URL, params, budget=budget)
+        matches = data.get("result", {}).get("addressMatches", [])
+        if not matches:
+            return None
+        coords = matches[0].get("coordinates", {})
+        x = coords.get("x")
+        y = coords.get("y")
+        if x is None or y is None:
+            return None
+        matched_address = str(matches[0].get("matchedAddress") or "").strip()
+        return GeocodeResult(
+            lon=float(x),
+            lat=float(y),
+            matched_address=matched_address,
+        )
+
+    async def _get_json(
+        self,
+        url: str,
+        params: dict[str, str],
+        *,
+        budget: RequestBudget,
+    ) -> dict[str, Any]:
+        budget.consume()
+        attempt = 0
+
+        while True:
+            await self._throttle()
+            try:
+                if self._external_client is not None:
+                    response = await self._external_client.get(url, params=params)
+                else:
+                    timeout = httpx.Timeout(self._timeout_seconds)
+                    async with httpx.AsyncClient(timeout=timeout) as client:
+                        response = await client.get(url, params=params)
+
+                if response.status_code == 429 or response.status_code >= 500:
+                    response.raise_for_status()
+
+                if response.status_code >= 400:
+                    text = response.text[:500]
+                    raise RuntimeError(
+                        f"Provider returned HTTP {response.status_code}: {text}"
+                    )
+                return response.json()
+            except (httpx.TimeoutException, httpx.NetworkError, httpx.HTTPStatusError) as exc:
+                if attempt >= self._max_retries:
+                    raise RuntimeError(f"Provider request failed after retries: {exc}") from exc
+                await asyncio.sleep(self._retry_backoff_seconds * (2 ** attempt))
+                attempt += 1
+
+    async def _throttle(self) -> None:
+        if self._min_interval_seconds <= 0:
+            return
+
+        async with self._throttle_lock:
+            now = monotonic()
+            elapsed = now - self._last_request_at
+            wait_seconds = self._min_interval_seconds - elapsed
+            if wait_seconds > 0:
+                await asyncio.sleep(wait_seconds)
+            self._last_request_at = monotonic()
+
+    def _feature_to_record(
+        self,
+        feature: dict[str, Any],
+        *,
+        matched_by: str,
+    ) -> ParcelRecord:
+        attrs = feature.get("attributes", {})
+        geometry = self._geometry_to_geojson(feature.get("geometry"))
+
+        parcel_id = str(attrs.get("PID") or "").strip()
+        owner_name = str(attrs.get("OWNER_NM") or "").strip()
+
+        # Reconstruct site address from component fields
+        house_no = str(attrs.get("HOUSE_NO") or "").strip()
+        frac = str(attrs.get("FRAC_HOUSE_NO") or attrs.get("CONDO_NO") or "").strip()
+        street = str(attrs.get("STREET_NM") or "").strip()
+        munic = str(attrs.get("MUNIC_NM") or "").strip()
+        zipcode = str(attrs.get("ZIP_CD") or "").strip()
+
+        parts = [p for p in [house_no, frac, street, munic, zipcode] if p]
+        site_address = " ".join(parts)
+
+        return ParcelRecord(
+            parcel_id=parcel_id,
+            owner_name=owner_name,
+            site_address=site_address,
+            geometry=geometry,
+            source="hennepin_county_arcgis",
+            matched_by=matched_by,
+        )
+
+    def _geometry_to_geojson(self, geometry: dict[str, Any] | None) -> dict[str, Any] | None:
+        if not geometry:
+            return None
+        if "rings" in geometry:
+            return {"type": "Polygon", "coordinates": geometry["rings"]}
+        if "x" in geometry and "y" in geometry:
+            return {"type": "Point", "coordinates": [geometry["x"], geometry["y"]]}
+        return None
+
+    def _to_esri_polygon(self, geojson_geometry: dict[str, Any]) -> dict[str, Any] | None:
+        geo_type = geojson_geometry.get("type")
+        if geo_type != "Polygon":
+            return None
+        rings = geojson_geometry.get("coordinates")
+        if not isinstance(rings, list):
+            return None
+        return {
+            "rings": rings,
+            "spatialReference": {"wkid": 4326},
+        }
+
+    def _normalize_address(self, address: str) -> str:
+        return " ".join(address.strip().upper().split())
+
+    def _extract_street_address(self, matched_address: str) -> str | None:
+        if not matched_address:
+            return None
+        street_segment = matched_address.split(",", maxsplit=1)[0].strip()
+        if not street_segment:
+            return None
+        street_segment = self._normalize_address(street_segment)
+        street_segment = re.sub(r"\s+\d{5}(?:-\d{4})?$", "", street_segment).strip()
+        return street_segment or None
+
+    def _parse_address_components(self, cleaned: str) -> tuple[str | None, str | None]:
+        """Extract house number and street name from a cleaned address string.
+
+        Hennepin stores HOUSE_NO and STREET_NM as separate fields, so we split
+        the address to match those columns for SQL WHERE clauses.
+        """
+        parts = cleaned.split()
+        if len(parts) < 2:
+            return None, cleaned or None
+
+        # First token is typically the house number
+        house = parts[0]
+        if not house.isdigit():
+            return None, cleaned or None
+
+        # Remaining tokens form the street name (skip directional suffixes like N, S, NE, SW)
+        rest = parts[1:]
+        # Remove trailing ZIP / city tokens if they look like state+zip
+        # Heuristic: last 2 tokens could be "MN 55376"
+        if len(rest) >= 3 and rest[-2].upper() in {"MN", "MINNESOTA"}:
+            rest = rest[:-2]
+
+        street = " ".join(rest) if rest else None
+        return house, street
+
+    def _sql_escape(self, value: str) -> str:
+        return value.replace("'", "''")
+
+    def _first_feature_with_pid(
+        self,
+        features: list[dict[str, Any]],
+    ) -> dict[str, Any] | None:
+        for feature in features:
+            attrs = feature.get("attributes", {})
+            parcel_id = str(attrs.get("PID") or "").strip()
+            if parcel_id:
+                return feature
+        return None
+
+    def _cache_record(self, normalized_address: str | None, record: ParcelRecord) -> None:
+        if normalized_address:
+            self._address_cache[normalized_address] = record
+        if record.parcel_id:
+            self._parcel_cache[record.parcel_id] = record

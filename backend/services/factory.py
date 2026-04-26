@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import httpx
 
+from backend.services.hennepin import HennepinParcelProvider
 from backend.services.provider import ParcelProvider
 from backend.services.wright import WrightParcelService
 
@@ -10,6 +11,7 @@ from backend.services.wright import WrightParcelService
 # New providers should be imported and added here.
 _PROVIDER_REGISTRY: dict[str, type[ParcelProvider]] = {
     "wright": WrightParcelService,
+    "hennepin": HennepinParcelProvider,
 }
 
 
