@@ -1,3 +1,28 @@
+// County configuration: [centerLat, centerLng, zoom, placeholder, subheading, countyNameForLinks]
+const COUNTY_CONFIG = {
+  wright: {
+    center: [45.2, -93.95],
+    zoom: 11,
+    placeholder: "Example: 4706 Mayer Ave NE St Michael MN 55376",
+    subheading: "Wright County, MN address → owner → adjacent parcel rings",
+    countyLabel: "Wright County",
+  },
+  hennepin: {
+    center: [44.95, -93.47],
+    zoom: 10,
+    placeholder: "Example: 12010 Ridgedale Dr Minnetonka MN 55305",
+    subheading: "Hennepin County, MN address → owner → adjacent parcel rings",
+    countyLabel: "Hennepin County",
+  },
+  st_louis: {
+    center: [47.5, -92.3],
+    zoom: 9,
+    placeholder: "Example: 4706 Oakley St Duluth MN 55804",
+    subheading: "St. Louis County, MN address → owner → adjacent parcel rings",
+    countyLabel: "St. Louis County",
+  },
+};
+
 const map = L.map("map").setView([45.2, -93.95], 11);
 L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
   maxZoom: 20,
@@ -5,6 +30,7 @@ L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
     '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
 }).addTo(map);
 
+const countySelect = document.getElementById("county");
 const addressInput = document.getElementById("address");
 const ringsInput = document.getElementById("rings");
 const useLlmInput = document.getElementById("use-llm");
@@ -23,6 +49,8 @@ const resultsBody = document.getElementById("results-body");
 const propertyLinksEl = document.getElementById("property-links");
 const linksContextEl = document.getElementById("links-context");
 const linkListEl = document.getElementById("link-list");
+const subheadingEl = document.getElementById("county-subheading");
+const pageTitle = document.querySelector("title");
 
 const ringColors = {
   0: "#1a6f4b",
@@ -31,6 +59,25 @@ const ringColors = {
 };
 
 let layers = [];
+let currentCounty = "wright";
+
+function getCountyConfig() {
+  return COUNTY_CONFIG[currentCounty] || COUNTY_CONFIG.wright;
+}
+
+function setCounty(county) {
+  currentCounty = county;
+  const cfg = getCountyConfig();
+
+  map.setView(cfg.center, cfg.zoom);
+  addressInput.placeholder = cfg.placeholder;
+  subheadingEl.textContent = cfg.subheading;
+  pageTitle.textContent = `ParcelPicker - ${cfg.countyLabel}`;
+  document.title = `ParcelPicker - ${cfg.countyLabel}`;
+}
+
+// Initialize with default county
+setCounty(countySelect.value);
 
 function setStatus(text, isError = false) {
   statusEl.textContent = text;
@@ -120,8 +167,8 @@ function buildPropertyLinks(run, seedParcel) {
     return [];
   }
 
-  const zillowQuery = `${query} Wright County MN`.trim();
-  const where = parcelId ? `PID='${parcelId.replace(/'/g, "''")}'` : "";
+  const countyLabel = getCountyConfig().countyLabel;
+  const zillowQuery = `${query} ${countyLabel} MN`.trim();
 
   const links = [
     {
@@ -136,19 +183,34 @@ function buildPropertyLinks(run, seedParcel) {
       )}`,
       primary: false,
     },
-    {
+  ];
+
+  // County-specific fallbacks
+  if (currentCounty === "wright") {
+    links.push({
       label: "Wright Property Search",
       href: "https://propertyaccess.co.wright.mn.us/search/commonsearch.aspx?mode=combined",
       primary: false,
-    },
-  ];
-
-  if (where) {
+    });
+    if (parcelId) {
+      links.push({
+        label: "Wright Parcel JSON",
+        href:
+          "https://web.co.wright.mn.us/arcgisserver/rest/services/Wright_County_Parcels/MapServer/1/query" +
+          `?f=pjson&where=${encodeURIComponent(`PARCELID='${parcelId.replace(/'/g, "''")}'`)}&outFields=PARCELID,OWNNAME,SITEADDRESS&returnGeometry=true&outSR=4326`,
+        primary: false,
+      });
+    }
+  } else if (currentCounty === "hennepin") {
     links.push({
-      label: "Wright Parcel JSON",
-      href:
-        "https://web.co.wright.mn.us/arcgisserver/rest/services/Wright_County_Parcels/MapServer/1/query" +
-        `?f=pjson&where=${encodeURIComponent(where)}&outFields=PID,OWNNAME,PHYSADDR&returnGeometry=true&outSR=4326`,
+      label: "Hennepin Property Search",
+      href: "https://www.hennepin.us/property-search",
+      primary: false,
+    });
+  } else if (currentCounty === "st_louis") {
+    links.push({
+      label: "St. Louis Property Info",
+      href: "https://www.stlouiscountymn.gov/departments-a-z/assessor/property-information",
       primary: false,
     });
   }
@@ -209,6 +271,14 @@ function renderRun(run) {
   renderTable(run.parcels || []);
 }
 
+function getRequestBody() {
+  return {
+    county: currentCounty,
+    rings: Number(ringsInput.value),
+    use_llm: Boolean(useLlmInput.checked),
+  };
+}
+
 async function runLookup() {
   const address = addressInput.value.trim();
   if (!address) {
@@ -224,9 +294,8 @@ async function runLookup() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
+        ...getRequestBody(),
         address,
-        rings: Number(ringsInput.value),
-        use_llm: Boolean(useLlmInput.checked),
       }),
     });
 
@@ -264,10 +333,9 @@ async function runLookupByPoint(lat, lon) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
+        ...getRequestBody(),
         lat,
         lon,
-        rings: Number(ringsInput.value),
-        use_llm: Boolean(useLlmInput.checked),
       }),
     });
 
@@ -291,6 +359,10 @@ async function runLookupByPoint(lat, lon) {
     setBusy(false);
   }
 }
+
+countySelect.addEventListener("change", (event) => {
+  setCounty(event.target.value);
+});
 
 lookupButton.addEventListener("click", runLookup);
 addressInput.addEventListener("keydown", (event) => {
