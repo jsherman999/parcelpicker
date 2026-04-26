@@ -2,6 +2,31 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.0] - 2026-04-25
+
+### Added
+- Multi-county support: Hennepin County and St. Louis County in addition to Wright County.
+- Abstract `BaseParcelService` with shared query/retry/throttle/geometry logic (strategy pattern).
+- `HennepinParcelService` with address points layer (MapServer/0) fallback for address-to-PID resolution.
+- `StLouisParcelService` with street-only PHYSADDR extraction and double-to-int ZIP handling.
+- County service registry (`registry.py`) with factory and human-readable labels.
+- County selector dropdown in the web UI (Wright / Hennepin / St. Louis).
+- Dynamic map center and zoom per county.
+- County-aware external property links (Zillow, Realtor, county property search, ArcGIS JSON).
+- `county` parameter on `POST /api/lookup` and `POST /api/lookup/point`.
+- `/api/providers/status` now returns available counties list.
+- Launchd LaunchAgent plist for auto-start and crash recovery on macOS.
+
+### Changed
+- Refactored `wright.py` to thin subclass of `BaseParcelService`.
+- `ParcelLookupRunner` now accepts generic `BaseParcelService` instead of `WrightParcelService`.
+- `main.py` initializes three service instances and selects runner by county.
+- Version bumped to 0.6.0.
+
+### Fixed
+- St. Louis PHYSADDR queries now correctly strip city/state/ZIP before searching (field is street-only).
+- St. Louis PHYSCITY already includes MN suffix — no duplicate state appending.
+
 ## [0.5.6] - 2026-02-15
 
 ### Added
