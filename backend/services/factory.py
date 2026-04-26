@@ -4,6 +4,7 @@ import httpx
 
 from backend.services.hennepin import HennepinParcelProvider
 from backend.services.provider import ParcelProvider
+from backend.services.stlouis import StLouisParcelProvider
 from backend.services.wright import WrightParcelService
 
 
@@ -12,6 +13,7 @@ from backend.services.wright import WrightParcelService
 _PROVIDER_REGISTRY: dict[str, type[ParcelProvider]] = {
     "wright": WrightParcelService,
     "hennepin": HennepinParcelProvider,
+    "st_louis": StLouisParcelProvider,
 }
 
 
