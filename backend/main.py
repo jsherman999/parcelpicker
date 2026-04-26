@@ -151,7 +151,10 @@ async def provider_status() -> dict[str, Any]:
 
 @app.post("/api/lookup", response_model=RunResponse)
 async def lookup(request: LookupRequest) -> RunResponse:
-    runner = _build_runner(request.county)
+    try:
+        runner = _build_runner(request.county)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
     run = await runner.run_lookup(
         input_address=request.address,
         rings_requested=request.rings,
@@ -166,7 +169,10 @@ async def lookup(request: LookupRequest) -> RunResponse:
 
 @app.post("/api/lookup/point", response_model=RunResponse)
 async def lookup_point(request: PointLookupRequest) -> RunResponse:
-    runner = _build_runner(request.county)
+    try:
+        runner = _build_runner(request.county)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
     run = await runner.run_lookup_from_point(
         lon=request.lon,
         lat=request.lat,

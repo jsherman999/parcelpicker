@@ -2,7 +2,17 @@
 
 ParcelPicker is a local-first web app for parcel intelligence. It runs on your Mac and exposes a LAN-accessible web interface.
 
-Current implementation supports **Wright County, Minnesota** with the full planned phases:
+## Supported Counties
+
+ParcelPicker currently supports **three Minnesota counties**:
+
+| County | Slug | Data Source |
+|---|---|---|
+| Wright County | `wright` | [ArcGIS Server](https://web.co.wright.mn.us/arcgisserver/rest/services/Wright_County_Parcels/MapServer/1) |
+| Hennepin County | `hennepin` | [ArcGIS Server](https://gis.hennepin.us/arcgis/rest/services/HennepinData/LAND_PROPERTY/MapServer/1) |
+| St. Louis County | `st_louis` | [ArcGIS Server](https://gis.stlouiscountymn.gov/server2/rest/services/GeneralUse/Open_Data/MapServer/7) |
+
+All counties support the full feature set:
 
 1. Address -> seed parcel lookup (parcel ID, owner, address, geometry).
 2. Optional adjacent expansion (`rings=1` or `rings=2`) using parcel-touching geometry.
@@ -11,24 +21,32 @@ Current implementation supports **Wright County, Minnesota** with the full plann
 5. Optional LLM-assisted owner normalization and run summary (OpenAI or OpenRouter, feature-flagged).
 6. Map click lookup: click any map location to identify parcel and run ring expansion from that seed.
 7. 30-day persistent parcel cache for immediate repeat lookup responses.
-8. Property Links panel with Zillow-first external links and Realtor/county fallbacks.
+8. Property Links panel with Zillow-first external links and county-specific fallbacks.
 
-## Data Sources (MVP)
+### Adding a New County
 
-- Wright County ArcGIS parcel layer/query endpoint (machine lookup)
-- U.S. Census geocoder (fallback from address to point)
+New counties are added by implementing the `ParcelProvider` protocol in `backend/services/provider.py`. See the existing providers (`wright.py`, `hennepin.py`, `stlouis.py`) as templates. Register the new provider in `backend/services/factory.py`.
+
+## Data Sources
+
+- County ArcGIS parcel layers (machine lookup with `Touches` spatial queries)
+- U.S. Census geocoder (fallback from address to coordinates)
 
 ## Project Structure
 
-- `/Users/jay/parcelpicker/backend/main.py` - FastAPI app and API routes.
-- `/Users/jay/parcelpicker/backend/services/wright.py` - Wright County parcel provider adapter.
-- `/Users/jay/parcelpicker/backend/services/runner.py` - lookup orchestration/ring traversal.
-- `/Users/jay/parcelpicker/backend/services/llm.py` - optional LLM helper client.
-- `/Users/jay/parcelpicker/backend/db.py` - SQLite schema + persistence access.
-- `/Users/jay/parcelpicker/backend/static/index.html` - web UI.
-- `/Users/jay/parcelpicker/backend/static/app.js` - frontend lookup/map/table logic.
-- `/Users/jay/parcelpicker/backend/static/styles.css` - frontend styles.
-- `/Users/jay/parcelpicker/data/app.db` - SQLite database created at runtime.
+- `backend/main.py` — FastAPI app and API routes.
+- `backend/services/provider.py` — `ParcelProvider` protocol and shared dataclasses.
+- `backend/services/factory.py` — Provider registry and factory function.
+- `backend/services/wright.py` — Wright County provider.
+- `backend/services/hennepin.py` — Hennepin County provider.
+- `backend/services/stlouis.py` — St. Louis County provider.
+- `backend/services/runner.py` — Lookup orchestration and ring traversal.
+- `backend/services/llm.py` — Optional LLM helper client.
+- `backend/db.py` — SQLite schema + persistence.
+- `backend/static/index.html` — Web UI.
+- `backend/static/app.js` — Frontend logic (map, table, lookups).
+- `backend/static/styles.css` — Frontend styles.
+- `data/app.db` — SQLite database created at runtime.
 
 ## Local Setup (macOS)
 
@@ -54,6 +72,7 @@ Core settings:
 
 - `HOST` / `PORT`
 - `DB_PATH`
+- `DEFAULT_COUNTY` (default `wright`)
 - `RETENTION_DAYS` (default `30`)
 - `MAX_PARCELS`
 - `MAX_REQUESTS_PER_RUN`
@@ -84,7 +103,15 @@ Returns:
 
 ### `GET /api/providers/status`
 
-Returns provider and LLM availability metadata.
+Returns available counties, default county, and LLM availability metadata.
+
+```json
+{
+  "available_counties": ["hennepin", "st_louis", "wright"],
+  "default_county": "wright",
+  "llm": { "enabled": false, ... }
+}
+```
 
 ### `POST /api/lookup`
 
@@ -94,10 +121,12 @@ Request:
 {
   "address": "11800 48th St NE, St Michael, MN",
   "rings": 2,
-  "use_llm": false
+  "use_llm": false,
+  "county": "wright"
 }
 ```
 
+- `county`: one of `wright`, `hennepin`, `st_louis` (default: `wright`)
 - `rings`: `0`, `1`, or `2`
 - `use_llm`: only applies when `ENABLE_LLM_ASSIST=true` and keys are configured
 
@@ -113,11 +142,12 @@ Request:
   "lat": 45.2199,
   "lon": -93.63298,
   "rings": 1,
-  "use_llm": false
+  "use_llm": false,
+  "county": "wright"
 }
 ```
 
-- Uses point-intersect lookup against Wright parcels.
+- Uses point-intersect lookup against the selected county's parcel layer.
 - If a parcel is found at the clicked location, it becomes the seed for ring expansion.
 - Returns the same run payload structure as `POST /api/lookup`.
 - Includes `from_cache` (`true`/`false`) for cache visibility.
@@ -142,11 +172,12 @@ Download the run as GeoJSON FeatureCollection.
 
 - Ring expansion uses `Touches` spatial relation against the current ring geometry set.
 - The web UI also supports map-click seeded lookups (uses `/api/lookup/point`).
+- Selecting a county in the UI recenters the map and updates context (title, placeholder, property links).
 - After a successful map-click lookup, the seed parcel address is auto-populated into the Property Address field.
 - Repeat lookups for known parcels are served from local cache when available within 30 days.
 - The web UI shows a Property Links panel for the selected seed parcel:
-- Zillow link first, then Realtor and county/public fallback links.
-- External property links open in new tabs (not embedded iframes).
+  - Zillow link first, then Realtor and county-specific fallback links.
+  - External property links open in new tabs (not embedded iframes).
 - Runs are bounded by request and parcel caps; capped runs return status `capped`.
 - LLM assistance is advisory and never used to invent parcel IDs or owners.
 - Owner normalization falls back to deterministic uppercase normalization when LLM is disabled/unavailable.
