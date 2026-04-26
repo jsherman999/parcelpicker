@@ -318,6 +318,6 @@ if __name__ == "__main__":
     import uvicorn
 
     host = os.getenv("HOST", "0.0.0.0")
-    port = int(os.getenv("PORT", "8091"))
+    port = int(os.getenv("PORT", "8666"))
     logger.info("starting_parcelpicker host=%s port=%s", host, port)
     uvicorn.run("backend.main:app", host=host, port=port, reload=False)
