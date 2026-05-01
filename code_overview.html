@@ -1,0 +1,661 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>ParcelPicker Code Overview</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --ink: #18202a;
+        --muted: #5b6673;
+        --paper: #f7f4ee;
+        --panel: #ffffff;
+        --line: #d8dde4;
+        --blue: #2563eb;
+        --teal: #0f766e;
+        --green: #15803d;
+        --amber: #b45309;
+        --red: #b91c1c;
+        --violet: #6d28d9;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        color: var(--ink);
+        background: var(--paper);
+        line-height: 1.5;
+      }
+
+      header {
+        padding: 56px max(24px, calc((100vw - 1180px) / 2)) 34px;
+        background: #172033;
+        color: #fff;
+      }
+
+      header p {
+        max-width: 850px;
+        color: #dbe4f0;
+        font-size: 18px;
+      }
+
+      main {
+        width: min(1180px, calc(100vw - 32px));
+        margin: 0 auto;
+        padding: 28px 0 64px;
+      }
+
+      h1,
+      h2,
+      h3 {
+        line-height: 1.1;
+        margin: 0;
+      }
+
+      h1 {
+        font-size: clamp(34px, 5vw, 62px);
+        letter-spacing: 0;
+      }
+
+      h2 {
+        font-size: 28px;
+        margin-bottom: 14px;
+      }
+
+      h3 {
+        font-size: 18px;
+        margin-bottom: 8px;
+      }
+
+      p {
+        margin: 0 0 12px;
+      }
+
+      code {
+        padding: 2px 5px;
+        border-radius: 5px;
+        background: #eef2f7;
+        font-size: 0.92em;
+      }
+
+      section {
+        margin-top: 22px;
+      }
+
+      .grid {
+        display: grid;
+        gap: 16px;
+      }
+
+      .grid.two {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .grid.three {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      .panel {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 20px;
+        box-shadow: 0 10px 24px rgba(24, 32, 42, 0.06);
+      }
+
+      .kicker {
+        margin-bottom: 6px;
+        color: var(--blue);
+        font-size: 12px;
+        font-weight: 800;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+
+      .muted {
+        color: var(--muted);
+      }
+
+      .tag-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 14px;
+      }
+
+      .tag {
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        padding: 5px 9px;
+        background: #fff;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .flow {
+        display: grid;
+        gap: 12px;
+      }
+
+      .flow-row {
+        display: grid;
+        grid-template-columns: 1fr 36px 1fr;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .node {
+        min-height: 74px;
+        border-left: 5px solid var(--blue);
+        border-radius: 8px;
+        background: #f8fafc;
+        padding: 12px;
+      }
+
+      .node.teal {
+        border-left-color: var(--teal);
+      }
+
+      .node.green {
+        border-left-color: var(--green);
+      }
+
+      .node.amber {
+        border-left-color: var(--amber);
+      }
+
+      .node.red {
+        border-left-color: var(--red);
+      }
+
+      .node.violet {
+        border-left-color: var(--violet);
+      }
+
+      .arrow {
+        text-align: center;
+        color: var(--muted);
+        font-weight: 900;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        overflow: hidden;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: #fff;
+      }
+
+      th,
+      td {
+        vertical-align: top;
+        border-bottom: 1px solid var(--line);
+        padding: 11px 12px;
+        text-align: left;
+      }
+
+      th {
+        background: #eef2f7;
+        font-size: 13px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+
+      tr:last-child td {
+        border-bottom: 0;
+      }
+
+      ul {
+        margin: 8px 0 0;
+        padding-left: 20px;
+      }
+
+      li {
+        margin: 6px 0;
+      }
+
+      .schema {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 12px;
+      }
+
+      .schema-card {
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 14px;
+        background: #fbfcfe;
+      }
+
+      .schema-card strong {
+        display: block;
+        margin-bottom: 6px;
+      }
+
+      .callout {
+        border-left: 5px solid var(--amber);
+        border-radius: 8px;
+        background: #fff8eb;
+        padding: 14px 16px;
+      }
+
+      @media (max-width: 860px) {
+        .grid.two,
+        .grid.three,
+        .schema,
+        .flow-row {
+          grid-template-columns: 1fr;
+        }
+
+        .arrow {
+          transform: rotate(90deg);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <p class="kicker">Code overview</p>
+      <h1>ParcelPicker</h1>
+      <p>
+        ParcelPicker is a local-first parcel intelligence app for Minnesota county property data.
+        A browser UI accepts an address or map click, asks the Python backend to identify the seed
+        parcel, optionally expands to touching parcel rings, stores the run in SQLite, and renders
+        parcel geometry, owners, exports, and property-search links.
+      </p>
+      <div class="tag-row">
+        <span class="tag">FastAPI</span>
+        <span class="tag">Uvicorn</span>
+        <span class="tag">SQLite WAL</span>
+        <span class="tag">Leaflet map UI</span>
+        <span class="tag">County ArcGIS REST APIs</span>
+        <span class="tag">U.S. Census geocoder fallback</span>
+        <span class="tag">Optional OpenAI/OpenRouter</span>
+      </div>
+    </header>
+
+    <main>
+      <section class="grid two">
+        <article class="panel">
+          <p class="kicker">What the app does</p>
+          <h2>High-level behavior</h2>
+          <p>
+            The app runs locally at <code>http://127.0.0.1:8091</code> and can also be exposed to
+            LAN devices through <code>HOST=0.0.0.0</code>. It serves static HTML, CSS, and JavaScript,
+            then exposes JSON APIs for parcel lookup, map-click lookup, run history, CSV export, and
+            GeoJSON export.
+          </p>
+          <p>
+            The main workflow is: choose Wright, Hennepin, or St. Louis County; enter an address or
+            click the map; choose rings <code>0</code>, <code>1</code>, or <code>2</code>; then view the seed parcel,
+            adjacent parcels, owners, source matches, map polygons, and external property links.
+          </p>
+        </article>
+
+        <article class="panel">
+          <p class="kicker">Runtime stack</p>
+          <h2>Underlying services and software</h2>
+          <ul>
+            <li>No Redis, Celery, Postgres, Django, Flask, Node server, or npm build step is used.</li>
+            <li>Python backend uses <code>FastAPI</code>, <code>uvicorn</code>, <code>pydantic</code>, and <code>httpx</code>.</li>
+            <li>Configuration is loaded from <code>.env</code> through <code>python-dotenv</code>.</li>
+            <li>Persistent storage is a local SQLite file, defaulting to <code>data/app.db</code>, with WAL mode enabled.</li>
+            <li>Maps use Leaflet in the browser and OpenStreetMap tiles.</li>
+            <li>County data comes from public ArcGIS REST query endpoints.</li>
+            <li>Address fallback geocoding uses the U.S. Census oneline address geocoder.</li>
+            <li>Optional owner cleanup and run summaries use OpenAI or OpenRouter chat completions.</li>
+            <li>macOS background startup can be handled by <code>launchd</code>.</li>
+          </ul>
+        </article>
+      </section>
+
+      <section class="panel">
+        <p class="kicker">Call flow</p>
+        <h2>Main parcel lookup path</h2>
+        <div class="flow">
+          <div class="flow-row">
+            <div class="node">
+              <h3>Browser UI</h3>
+              <p><code>backend/static/index.html</code> loads Leaflet, <code>styles.css</code>, and <code>app.js</code>.</p>
+            </div>
+            <div class="arrow">&rarr;</div>
+            <div class="node teal">
+              <h3>Lookup request</h3>
+              <p><code>runLookup()</code> posts <code>/api/lookup</code>; a map click posts <code>/api/lookup/point</code>.</p>
+            </div>
+          </div>
+          <div class="flow-row">
+            <div class="node green">
+              <h3>FastAPI route</h3>
+              <p><code>backend/main.py</code> validates the request and selects a county runner with <code>_get_runner()</code>.</p>
+            </div>
+            <div class="arrow">&rarr;</div>
+            <div class="node amber">
+              <h3>Runner pipeline</h3>
+              <p><code>ParcelLookupRunner</code> checks the SQLite cache, creates a run, resolves the seed parcel, expands rings, and writes results.</p>
+            </div>
+          </div>
+          <div class="flow-row">
+            <div class="node violet">
+              <h3>Provider services</h3>
+              <p>County adapters call ArcGIS. Address misses can fall back to Census geocoding and point-intersect parcel lookup.</p>
+            </div>
+            <div class="arrow">&rarr;</div>
+            <div class="node red">
+              <h3>Response and rendering</h3>
+              <p>The API returns a run payload. <code>app.js</code> draws GeoJSON in Leaflet, fills metadata, table rows, exports, and property links.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <p class="kicker">API surface</p>
+        <h2>HTTP routes</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Route</th>
+              <th>Method</th>
+              <th>Handler path</th>
+              <th>Purpose</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>/</code>, <code>/static/*</code></td>
+              <td>GET</td>
+              <td><code>backend/main.py</code></td>
+              <td>Serves the browser app and static assets.</td>
+            </tr>
+            <tr>
+              <td><code>/api/health</code></td>
+              <td>GET</td>
+              <td><code>health()</code></td>
+              <td>Basic health check returning <code>{"status":"ok"}</code>.</td>
+            </tr>
+            <tr>
+              <td><code>/api/providers/status</code></td>
+              <td>GET</td>
+              <td><code>provider_status()</code></td>
+              <td>Reports supported county keys and whether the optional LLM helper is available.</td>
+            </tr>
+            <tr>
+              <td><code>/api/lookup</code></td>
+              <td>POST</td>
+              <td><code>lookup()</code></td>
+              <td>Address-seeded parcel lookup with optional ring expansion and optional LLM assistance.</td>
+            </tr>
+            <tr>
+              <td><code>/api/lookup/point</code></td>
+              <td>POST</td>
+              <td><code>lookup_point()</code></td>
+              <td>Map-click lookup by latitude and longitude, then the same ring-expansion pipeline.</td>
+            </tr>
+            <tr>
+              <td><code>/api/runs</code></td>
+              <td>GET</td>
+              <td><code>list_runs()</code></td>
+              <td>Lists recent lookup runs from SQLite.</td>
+            </tr>
+            <tr>
+              <td><code>/api/runs/{run_id}</code></td>
+              <td>GET</td>
+              <td><code>get_run()</code></td>
+              <td>Returns one stored run and all associated parcel rows.</td>
+            </tr>
+            <tr>
+              <td><code>/api/runs/{run_id}/csv</code></td>
+              <td>GET</td>
+              <td><code>get_run_csv()</code></td>
+              <td>Downloads parcel rows as CSV.</td>
+            </tr>
+            <tr>
+              <td><code>/api/runs/{run_id}/geojson</code></td>
+              <td>GET</td>
+              <td><code>get_run_geojson()</code></td>
+              <td>Downloads parcel geometries as a GeoJSON FeatureCollection.</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="grid two">
+        <article class="panel">
+          <p class="kicker">Backend modules</p>
+          <h2>What each major Python part does</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>File</th>
+                <th>Responsibility</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>backend/main.py</code></td>
+                <td>FastAPI app, route definitions, static file mounting, CORS, environment loading, service creation, and Uvicorn entry point.</td>
+              </tr>
+              <tr>
+                <td><code>backend/db.py</code></td>
+                <td>SQLite schema, WAL setup, thread lock, run CRUD, parcel upsert, address aliases, cache lookup, cleanup, and run retrieval.</td>
+              </tr>
+              <tr>
+                <td><code>backend/services/base.py</code></td>
+                <td>Shared ArcGIS query behavior: retry, throttle, request budget, address lookup, Census fallback, point lookup, adjacency, and geometry conversion.</td>
+              </tr>
+              <tr>
+                <td><code>backend/services/runner.py</code></td>
+                <td>County-agnostic orchestration for address and point lookups, ring traversal, caching, owner normalization, summaries, and status handling.</td>
+              </tr>
+              <tr>
+                <td><code>backend/services/wright.py</code></td>
+                <td>Wright County ArcGIS adapter: endpoint URL and field mapping for <code>PID</code>, <code>OWNNAME</code>, and <code>PHYSADDR</code>.</td>
+              </tr>
+              <tr>
+                <td><code>backend/services/hennepin.py</code></td>
+                <td>Hennepin adapter using parcel layer plus address-points lookup to resolve addresses to <code>PID</code>.</td>
+              </tr>
+              <tr>
+                <td><code>backend/services/stlouis.py</code></td>
+                <td>St. Louis County adapter with street-only address extraction and city/ZIP address reconstruction.</td>
+              </tr>
+              <tr>
+                <td><code>backend/services/registry.py</code></td>
+                <td>County service factory and display labels.</td>
+              </tr>
+              <tr>
+                <td><code>backend/services/llm.py</code></td>
+                <td>Optional OpenAI/OpenRouter chat client for owner-name normalization and short run summaries.</td>
+              </tr>
+            </tbody>
+          </table>
+        </article>
+
+        <article class="panel">
+          <p class="kicker">Core orchestration</p>
+          <h2><code>ParcelLookupRunner</code> responsibilities</h2>
+          <ul>
+            <li><code>run_lookup()</code>: normalizes an address, tries a recent alias/run cache hit, then starts a fresh provider lookup.</li>
+            <li><code>run_lookup_from_point()</code>: checks whether recent cached parcel polygons contain the clicked point before calling the county API.</li>
+            <li><code>_run_lookup_core()</code>: creates the run, resolves the seed, traverses requested rings, writes parcels, generates summary, and completes or fails the run.</li>
+            <li><code>query_adjacent()</code> calls use ArcGIS <code>esriSpatialRelTouches</code> to find parcels touching the current frontier.</li>
+            <li>Guardrails stop runaway work with <code>MAX_PARCELS</code>, <code>MAX_REQUESTS_PER_RUN</code>, and <code>ADJACENT_LIMIT_PER_PARCEL</code>.</li>
+            <li>Cache helpers reuse recent runs within <code>RETENTION_DAYS</code> and trim cached results down to the requested ring count.</li>
+            <li>LLM assistance is optional; deterministic uppercase owner normalization is always available as a fallback.</li>
+          </ul>
+        </article>
+      </section>
+
+      <section class="panel">
+        <p class="kicker">Data model</p>
+        <h2>SQLite tables</h2>
+        <div class="schema">
+          <div class="schema-card">
+            <strong><code>lookup_runs</code></strong>
+            <p>One row per lookup: input address or point label, rings, status, provider, LLM flag, seed parcel, summary, error, and timestamps.</p>
+          </div>
+          <div class="schema-card">
+            <strong><code>parcels</code></strong>
+            <p>Canonical parcel records keyed by parcel id: owner, normalized owner, site address, GeoJSON geometry, source, and update time.</p>
+          </div>
+          <div class="schema-card">
+            <strong><code>run_parcels</code></strong>
+            <p>Join table connecting runs to parcels, with ring number, seed flag, and match source such as address, Census point, or map click.</p>
+          </div>
+          <div class="schema-card">
+            <strong><code>parcel_address_aliases</code></strong>
+            <p>Normalized address-to-parcel cache for fast repeat address lookups during the retention window.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="grid two">
+        <article class="panel">
+          <p class="kicker">Frontend</p>
+          <h2>Browser app breakdown</h2>
+          <ul>
+            <li><code>backend/static/index.html</code> defines the county selector, address box, ring selector, LLM toggle, metadata panel, map, property links, and results table.</li>
+            <li><code>backend/static/styles.css</code> styles the dark app shell, panels, controls, Leaflet map, link chips, table, and responsive layout.</li>
+            <li><code>backend/static/app.js</code> holds county config, initializes Leaflet, calls backend APIs, renders parcel polygons, fills the table, and builds external links.</li>
+            <li><code>countyConfig</code> controls map centers, placeholders, property-search links, ArcGIS JSON links, and Zillow/Realtor search suffixes per county.</li>
+            <li><code>renderRun()</code> updates run metadata, export URLs, property links, map layers, and parcel table from the API response.</li>
+            <li><code>runLookupByPoint()</code> sends clicked map coordinates to the backend and fills the address input with the detected seed address when available.</li>
+          </ul>
+        </article>
+
+        <article class="panel">
+          <p class="kicker">County adapters</p>
+          <h2>Supported parcel providers</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>County</th>
+                <th>Parcel id field</th>
+                <th>Notes</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Wright</td>
+                <td><code>PID</code></td>
+                <td>Direct parcel-layer address queries against <code>PHYSADDR</code>.</td>
+              </tr>
+              <tr>
+                <td>Hennepin</td>
+                <td><code>PID</code></td>
+                <td>Uses address points first, then parcel-layer street/house matching when needed.</td>
+              </tr>
+              <tr>
+                <td>St. Louis</td>
+                <td><code>PRCL_NBR</code></td>
+                <td>Queries street-only <code>PHYSADDR</code> and reconstructs display addresses from city/ZIP fields.</td>
+              </tr>
+            </tbody>
+          </table>
+        </article>
+      </section>
+
+      <section class="panel">
+        <p class="kicker">External calls</p>
+        <h2>What talks to the network</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Caller</th>
+              <th>Service</th>
+              <th>Used for</th>
+              <th>Fallback behavior</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>BaseParcelService._query_county()</code></td>
+              <td>County ArcGIS parcel query endpoints</td>
+              <td>Address matching, point intersection, and touching-parcel adjacency.</td>
+              <td>Retries transient failures, then fails the run with a provider error.</td>
+            </tr>
+            <tr>
+              <td><code>HennepinParcelService._query_address_points()</code></td>
+              <td>Hennepin address-points ArcGIS layer</td>
+              <td>Resolve address text to a Hennepin <code>PID</code> before loading the parcel geometry.</td>
+              <td>Falls back to parcel-layer street and house-number matching.</td>
+            </tr>
+            <tr>
+              <td><code>BaseParcelService._geocode_with_census()</code></td>
+              <td>U.S. Census oneline address geocoder</td>
+              <td>Convert an address to coordinates when direct ArcGIS address lookup misses.</td>
+              <td>Tries Census street-address match, then point-intersect; otherwise returns not found.</td>
+            </tr>
+            <tr>
+              <td><code>LLMService</code></td>
+              <td>OpenAI or OpenRouter chat completions</td>
+              <td>Optional owner-name normalization and concise run summaries.</td>
+              <td>Disabled unless configured; deterministic owner normalization and summary remain in place.</td>
+            </tr>
+            <tr>
+              <td><code>app.js</code></td>
+              <td>Leaflet tile layer from OpenStreetMap</td>
+              <td>Browser map background tiles.</td>
+              <td>The app still runs, but basemap tiles may not render.</td>
+            </tr>
+            <tr>
+              <td><code>app.js</code></td>
+              <td>Zillow, Realtor, county property pages, ArcGIS JSON URLs</td>
+              <td>External property links shown for the seed parcel.</td>
+              <td>Links open in new tabs; lookup results are not dependent on them.</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="grid two">
+        <article class="panel">
+          <p class="kicker">Configuration</p>
+          <h2>Environment variables</h2>
+          <ul>
+            <li><code>HOST</code>, <code>PORT</code>: bind address and port, defaulting to <code>0.0.0.0:8091</code> in the example env.</li>
+            <li><code>DB_PATH</code>: SQLite database path.</li>
+            <li><code>RETENTION_DAYS</code>: cache and cleanup window, default <code>30</code>.</li>
+            <li><code>MAX_PARCELS</code>, <code>MAX_REQUESTS_PER_RUN</code>, <code>ADJACENT_LIMIT_PER_PARCEL</code>: lookup expansion limits.</li>
+            <li><code>REQUEST_TIMEOUT_SECONDS</code>, <code>REQUEST_RETRIES</code>, <code>RETRY_BACKOFF_SECONDS</code>, <code>MIN_REQUEST_INTERVAL_SECONDS</code>: provider request safeguards.</li>
+            <li><code>ENABLE_LLM_ASSIST</code>, <code>LLM_PROVIDER</code>, <code>LLM_MODEL</code>, <code>OPENAI_API_KEY</code>, <code>OPENROUTER_API_KEY</code>: optional LLM behavior.</li>
+            <li><code>MAX_LLM_NORMALIZATIONS</code>: cap on owner names sent to an LLM per run.</li>
+            <li><code>LOG_LEVEL</code>: Python logging verbosity.</li>
+          </ul>
+        </article>
+
+        <article class="panel">
+          <p class="kicker">Operations</p>
+          <h2>Run and deploy</h2>
+          <ul>
+            <li>Manual run: <code>python -m backend.main</code>.</li>
+            <li>Install dependencies with <code>pip install -r requirements.txt</code>.</li>
+            <li><code>backend/main.py</code> loads <code>.env</code>, opens SQLite, creates all county services, creates one runner per county, and starts Uvicorn when run as a module.</li>
+            <li>SQLite data is created at runtime under <code>data/app.db</code> unless <code>DB_PATH</code> overrides it.</li>
+            <li>Provider calls are bounded by request budgets, retries, backoff, throttling, and parcel caps.</li>
+            <li>A macOS LaunchAgent can auto-start and keep the app alive after boot or crash.</li>
+            <li>Basic validation used in the project is <code>python3 -m compileall backend</code>.</li>
+          </ul>
+        </article>
+      </section>
+
+      <section class="callout">
+        <h2>Important architectural note</h2>
+        <p>
+          ParcelPicker is intentionally local and lightweight. There is no external job queue or
+          separate database server: API requests do their work inline, external provider calls are
+          async HTTP requests, and persistence is a single SQLite file protected by an in-process
+          lock. SQLite uses WAL mode, while request budgets and parcel caps keep county ArcGIS
+          lookups from growing beyond the configured limits.
+        </p>
+      </section>
+    </main>
+  </body>
+</html>
