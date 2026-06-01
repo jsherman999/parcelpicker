@@ -171,11 +171,15 @@ async def provider_status() -> dict[str, Any]:
 @app.post("/api/lookup", response_model=RunResponse)
 async def lookup(request: LookupRequest) -> RunResponse:
     runner = _get_runner(request.county)
-    run = await runner.run_lookup(
-        input_address=request.address,
-        rings_requested=request.rings,
-        use_llm=request.use_llm,
-    )
+    try:
+        run = await runner.run_lookup(
+            input_address=request.address,
+            rings_requested=request.rings,
+            use_llm=request.use_llm,
+        )
+    except Exception as exc:
+        logger.exception("lookup_endpoint_unhandled county=%s", request.county)
+        raise HTTPException(status_code=502, detail=str(exc) or "Lookup failed.")
     if run["status"] == "failed":
         raise HTTPException(status_code=502, detail=run.get("error", "Lookup failed."))
     if run["status"] == "not_found":
@@ -186,12 +190,16 @@ async def lookup(request: LookupRequest) -> RunResponse:
 @app.post("/api/lookup/point", response_model=RunResponse)
 async def lookup_point(request: PointLookupRequest) -> RunResponse:
     runner = _get_runner(request.county)
-    run = await runner.run_lookup_from_point(
-        lon=request.lon,
-        lat=request.lat,
-        rings_requested=request.rings,
-        use_llm=request.use_llm,
-    )
+    try:
+        run = await runner.run_lookup_from_point(
+            lon=request.lon,
+            lat=request.lat,
+            rings_requested=request.rings,
+            use_llm=request.use_llm,
+        )
+    except Exception as exc:
+        logger.exception("lookup_point_endpoint_unhandled county=%s", request.county)
+        raise HTTPException(status_code=502, detail=str(exc) or "Lookup failed.")
     if run["status"] == "failed":
         raise HTTPException(status_code=502, detail=run.get("error", "Lookup failed."))
     if run["status"] == "not_found":

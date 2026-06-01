@@ -308,16 +308,20 @@ class ParcelDatabase:
         with self._lock:
             self._conn.execute(
                 """
-                DELETE FROM lookup_runs
-                WHERE created_at < datetime('now', ?)
+                DELETE FROM run_parcels
+                WHERE run_id IN (
+                    SELECT id FROM lookup_runs
+                    WHERE created_at < datetime('now', ?)
+                )
                 """,
                 (cutoff,),
             )
             self._conn.execute(
                 """
-                DELETE FROM run_parcels
-                WHERE run_id NOT IN (SELECT id FROM lookup_runs)
-                """
+                DELETE FROM lookup_runs
+                WHERE created_at < datetime('now', ?)
+                """,
+                (cutoff,),
             )
             self._conn.execute(
                 """
@@ -330,6 +334,7 @@ class ParcelDatabase:
                 """
                 DELETE FROM parcels
                 WHERE parcel_id NOT IN (SELECT DISTINCT parcel_id FROM run_parcels)
+                  AND parcel_id NOT IN (SELECT parcel_id FROM parcel_address_aliases)
                   AND updated_at < datetime('now', ?)
                 """,
                 (cutoff,),

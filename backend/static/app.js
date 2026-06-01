@@ -9,7 +9,7 @@ const countyConfig = {
       href: "https://propertyaccess.co.wright.mn.us/search/commonsearch.aspx?mode=combined",
     },
     arcgisJsonBase:
-      "https://web.co.wright.mn.us/arcgisserver/rest/services/Wright_County_Parcels/MapServer/1/query",
+      "https://services2.arcgis.com/CiQCvRGImIxsaFnM/arcgis/rest/services/Parcel_Data/FeatureServer/0/query",
     arcgisJsonFields: "PID,OWNNAME,PHYSADDR",
     arcgisJsonIdField: "PID",
     zillowSuffix: "Wright County MN",
