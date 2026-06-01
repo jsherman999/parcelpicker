@@ -51,6 +51,7 @@ class BaseParcelService:
     owner_field: str = ""
     address_field: str = ""
     extra_out_fields: list[str] = []
+    adjacent_spatial_rel: str = "esriSpatialRelTouches"
 
     def __init__(
         self,
@@ -150,7 +151,7 @@ class BaseParcelService:
                 "where": "1=1",
                 "geometry": json.dumps(esri_geometry),
                 "geometryType": "esriGeometryPolygon",
-                "spatialRel": "esriSpatialRelTouches",
+                "spatialRel": self.adjacent_spatial_rel,
                 "inSR": "4326",
                 "outFields": self._get_outfields(),
                 "returnGeometry": "true",

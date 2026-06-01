@@ -16,3 +16,4 @@ class WrightParcelService(BaseParcelService):
     parcel_id_field = "PID"
     owner_field = "OWNNAME"
     address_field = "PHYSADDR"
+    adjacent_spatial_rel = "esriSpatialRelIntersects"
