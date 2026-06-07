@@ -17,7 +17,7 @@ from pydantic import BaseModel, Field
 from backend.db import ParcelDatabase
 from backend.services.llm import LLMConfig, LLMService
 from backend.services.runner import ParcelLookupRunner, load_lookup_settings
-from backend.services.registry import create_service, COUNTY_LABELS
+from backend.services.registry import create_service, COUNTY_CLASSES, COUNTY_LABELS
 
 
 load_dotenv()
@@ -69,7 +69,7 @@ _service_backoff = float(os.getenv("RETRY_BACKOFF_SECONDS", "0.8"))
 _service_interval = float(os.getenv("MIN_REQUEST_INTERVAL_SECONDS", "0.15"))
 
 _parcel_services: dict[str, Any] = {}
-for county_key in ["wright", "hennepin", "stlouis"]:
+for county_key in COUNTY_CLASSES.keys():
     _parcel_services[county_key] = create_service(
         county_key,
         timeout_seconds=_service_timeout,

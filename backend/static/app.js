@@ -44,6 +44,37 @@ const countyConfig = {
     arcgisJsonIdField: "PRCL_NBR",
     zillowSuffix: "St. Louis County MN",
   },
+  sherburne: {
+    label: "Sherburne County",
+    center: [45.45, -93.78],
+    zoom: 11,
+    placeholder: "Example: 18879 180th Ave NW Big Lake MN 55309",
+    propertySearch: {
+      label: "Sherburne Property Search",
+      href: "https://beacon.schneidercorp.com/Application.aspx?AppID=133&LayerID=1600&PageTypeID=2&PageID=828",
+    },
+    arcgisJsonBase:
+      "https://gis.co.sherburne.mn.us/arcgis/rest/services/OpenData/Parcels/FeatureServer/0/query",
+    arcgisJsonFields:
+      "PIN,OWNER_NAME,BLDG_NUM,STREETNAME,STREETTYPE,SUFFIX_DIR,CITY_MAIL,ZIP",
+    arcgisJsonIdField: "PIN",
+    zillowSuffix: "Sherburne County MN",
+  },
+  anoka: {
+    label: "Anoka County",
+    center: [45.27, -93.25],
+    zoom: 11,
+    placeholder: "Example: 23925 Germanium St NW Saint Francis MN 55070",
+    propertySearch: {
+      label: "Anoka Property Search",
+      href: "https://gis.anokacountymn.gov/propertysearch/",
+    },
+    arcgisJsonBase:
+      "https://gisservices.co.anoka.mn.us/anoka_gis/rest/services/Parcels/FeatureServer/0/query",
+    arcgisJsonFields: "PIN,OWNER,LOC_ADDR,LOC_CITY,LOC_ZIP",
+    arcgisJsonIdField: "PIN",
+    zillowSuffix: "Anoka County MN",
+  },
 };
 
 const countySelect = document.getElementById("county");
