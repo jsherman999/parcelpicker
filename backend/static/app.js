@@ -104,7 +104,17 @@ const ringColors = {
   2: "#b76a22",
 };
 
+const countyBorderStyle = {
+  color: "#0b3d2e",
+  weight: 2,
+  fill: false,
+  dashArray: "5 4",
+  interactive: false,
+};
+
 let layers = [];
+let countyBoundaries = {};
+let currentBorderLayer = null;
 
 function getCounty() {
   return countySelect.value || "wright";
@@ -124,15 +134,46 @@ L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
     '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
 }).addTo(map);
 
+function drawCountyBorder() {
+  if (currentBorderLayer) {
+    map.removeLayer(currentBorderLayer);
+    currentBorderLayer = null;
+  }
+  const geom = countyBoundaries[getCounty()];
+  if (!geom) {
+    return;
+  }
+  currentBorderLayer = L.geoJSON(geom, countyBorderStyle).addTo(map);
+  if (currentBorderLayer.bringToBack) {
+    currentBorderLayer.bringToBack();
+  }
+}
+
 function applyCounty() {
   const cfg = getCountyConfig();
   subheadingEl.textContent = cfg.label + " address \u2192 owner \u2192 adjacent parcel rings";
   addressInput.placeholder = cfg.placeholder;
   map.setView(cfg.center, cfg.zoom);
+  drawCountyBorder();
 }
 
 countySelect.addEventListener("change", applyCounty);
 applyCounty();
+
+fetch("/static/county_boundaries.geojson")
+  .then((r) => (r.ok ? r.json() : Promise.reject(new Error("status " + r.status))))
+  .then((fc) => {
+    for (const feat of fc.features || []) {
+      const id = feat.id || (feat.properties && feat.properties.id);
+      if (id) {
+        countyBoundaries[id] = feat;
+      }
+    }
+    drawCountyBorder();
+  })
+  .catch((err) => {
+    console.warn("county boundaries load failed:", err);
+  });
 
 function setStatus(text, isError = false) {
   statusEl.textContent = text;
