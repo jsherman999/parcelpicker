@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ParcelPicker — CORS Test Harness</title>
+  <style>
+    :root { color-scheme: light dark; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      margin: 0; padding: 24px; line-height: 1.45;
+      max-width: 1100px; margin-inline: auto;
+    }
+    h1 { margin: 0 0 4px; font-size: 1.5rem; }
+    .sub { color: #666; margin: 0 0 16px; }
+    .bar {
+      display: flex; gap: 12px; align-items: center; flex-wrap: wrap;
+      padding: 12px; border: 1px solid #ccc; border-radius: 8px; margin-bottom: 16px;
+    }
+    .origin { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    button {
+      font-size: 0.95rem; padding: 8px 16px; border-radius: 6px;
+      border: 1px solid #888; background: #1565c0; color: #fff; cursor: pointer;
+    }
+    button:disabled { opacity: 0.5; cursor: default; }
+    .summary { font-weight: 600; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+    th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #ddd; vertical-align: top; }
+    th { background: rgba(128,128,128,0.12); }
+    td.status { white-space: nowrap; font-weight: 600; }
+    .ok { color: #1b7e3c; }
+    .fail { color: #c62828; }
+    .pending { color: #999; }
+    .detail { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.8rem; color: #555; word-break: break-word; }
+    .url { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.78rem; color: #777; word-break: break-all; }
+    .note { background: rgba(255,193,7,0.12); border: 1px solid rgba(255,193,7,0.5); border-radius: 8px; padding: 12px 16px; margin-top: 20px; font-size: 0.88rem; }
+    .note code { background: rgba(128,128,128,0.18); padding: 1px 4px; border-radius: 3px; }
+    .ms { color: #999; font-size: 0.8rem; }
+  </style>
+</head>
+<body>
+  <h1>ParcelPicker — CORS Test Harness</h1>
+  <p class="sub">Checks whether each external endpoint the app depends on can be called directly from the browser (the prerequisite for an all-in-browser, no-server build).</p>
+
+  <div class="bar">
+    <div>Requesting origin: <span class="origin" id="origin"></span></div>
+    <button id="run">Run all tests</button>
+    <span class="summary" id="summary"></span>
+  </div>
+
+  <table>
+    <thead>
+      <tr><th>Endpoint</th><th>Type</th><th class="status">Result</th><th>Detail</th></tr>
+    </thead>
+    <tbody id="rows"></tbody>
+  </table>
+
+  <div class="note">
+    <strong>How to read this:</strong>
+    <ul>
+      <li><span class="ok">✅ PASS</span> — the browser fetched the data cross-origin. This endpoint works in an all-in-browser build from <em>this origin</em>.</li>
+      <li><span class="fail">❌ FAIL</span> — the <code>fetch</code> was rejected. For security the browser reports CORS blocks and network errors identically as <code>TypeError: Failed to fetch</code>. <strong>Open DevTools → Console</strong> to see the precise reason: a line containing <em>"blocked by CORS policy: No 'Access-Control-Allow-Origin' header"</em> means CORS; anything else (DNS, TLS, offline) is a plain network failure.</li>
+    </ul>
+    Origin matters: some servers only allow specific origins. For a trustworthy result, serve this file from the origin you intend to deploy to (e.g. <code>python3 -m http.server</code> for localhost, or your real static host). Avoid <code>file://</code> — its origin is <code>null</code> and behaves differently.
+  </div>
+
+  <script>
+    // Exact endpoints + queries the in-browser port would issue, mirrored from backend/services/*.py
+    const ARCGIS_PARAMS = (idField) => new URLSearchParams({
+      where: "1=1",
+      outFields: idField,
+      returnGeometry: "false",
+      resultRecordCount: "1",
+      f: "json",
+    });
+
+    const tests = [
+      {
+        name: "Wright County (parcels)",
+        type: "ArcGIS Online",
+        url: "https://services2.arcgis.com/CiQCvRGImIxsaFnM/arcgis/rest/services/Parcel_Data/FeatureServer/0/query",
+        params: ARCGIS_PARAMS("PID"),
+        kind: "arcgis",
+      },
+      {
+        name: "Hennepin County (parcels)",
+        type: "Self-hosted ArcGIS",
+        url: "https://gis.hennepin.us/arcgis/rest/services/HennepinData/LAND_PROPERTY/MapServer/1/query",
+        params: ARCGIS_PARAMS("PID"),
+        kind: "arcgis",
+      },
+      {
+        name: "Hennepin County (address points)",
+        type: "Self-hosted ArcGIS",
+        url: "https://gis.hennepin.us/arcgis/rest/services/HennepinData/LAND_PROPERTY/MapServer/0/query",
+        params: ARCGIS_PARAMS("PID"),
+        kind: "arcgis",
+      },
+      {
+        name: "St. Louis County (parcels)",
+        type: "Self-hosted ArcGIS",
+        url: "https://gis.stlouiscountymn.gov/server2/rest/services/GeneralUse/Cadastral/MapServer/23/query",
+        params: ARCGIS_PARAMS("PRCL_NBR"),
+        kind: "arcgis",
+      },
+      {
+        name: "Sherburne County (parcels)",
+        type: "Self-hosted ArcGIS",
+        url: "https://gis.co.sherburne.mn.us/arcgis/rest/services/OpenData/Parcels/FeatureServer/0/query",
+        params: ARCGIS_PARAMS("PIN"),
+        kind: "arcgis",
+      },
+      {
+        name: "Anoka County (parcels)",
+        type: "Self-hosted ArcGIS",
+        url: "https://gisservices.co.anoka.mn.us/anoka_gis/rest/services/Parcels/FeatureServer/0/query",
+        params: ARCGIS_PARAMS("PIN"),
+        kind: "arcgis",
+      },
+      {
+        name: "U.S. Census geocoder",
+        type: "Census API",
+        url: "https://geocoding.geo.census.gov/geocoder/locations/onelineaddress",
+        params: new URLSearchParams({
+          address: "4706 Mayer Ave NE St Michael MN 55376",
+          benchmark: "Public_AR_Current",
+          format: "json",
+        }),
+        kind: "census",
+      },
+    ];
+
+    const originEl = document.getElementById("origin");
+    originEl.textContent = window.location.origin || "(null — opened via file://)";
+    const rowsEl = document.getElementById("rows");
+    const summaryEl = document.getElementById("summary");
+    const runBtn = document.getElementById("run");
+
+    const rowRefs = tests.map((t) => {
+      const tr = document.createElement("tr");
+      tr.innerHTML =
+        `<td>${t.name}<div class="url">${t.url}</div></td>` +
+        `<td>${t.type}</td>` +
+        `<td class="status pending">— not run —</td>` +
+        `<td class="detail"></td>`;
+      rowsEl.appendChild(tr);
+      return { status: tr.children[2], detail: tr.children[3] };
+    });
+
+    function interpret(test, data) {
+      // A successful fetch + readable body means CORS passed. Add a content sanity note.
+      if (test.kind === "arcgis") {
+        if (data && data.error) {
+          return { ok: true, msg: `CORS OK; server returned ArcGIS error: ${data.error.message || JSON.stringify(data.error)}` };
+        }
+        const n = (data && data.features && data.features.length) || 0;
+        return { ok: true, msg: `CORS OK; ${n} feature(s) read` };
+      }
+      // census
+      const matches = (data && data.result && data.result.addressMatches) || [];
+      return { ok: true, msg: `CORS OK; ${matches.length} geocode match(es)` };
+    }
+
+    async function runOne(test, ref) {
+      ref.status.textContent = "…running";
+      ref.status.className = "status pending";
+      ref.detail.textContent = "";
+      const url = `${test.url}?${test.params.toString()}`;
+      const t0 = performance.now();
+      try {
+        const res = await fetch(url, { method: "GET", mode: "cors" });
+        const ms = Math.round(performance.now() - t0);
+        let data = null;
+        let parseNote = "";
+        try { data = await res.json(); }
+        catch (e) { parseNote = " (body not JSON)"; }
+        const verdict = interpret(test, data || {});
+        ref.status.textContent = `✅ PASS (HTTP ${res.status})`;
+        ref.status.className = "status ok";
+        ref.detail.innerHTML = `${verdict.msg}${parseNote} <span class="ms">${ms} ms</span>`;
+        return true;
+      } catch (err) {
+        const ms = Math.round(performance.now() - t0);
+        ref.status.textContent = "❌ FAIL";
+        ref.status.className = "status fail";
+        ref.detail.innerHTML =
+          `${err.name}: ${err.message} <span class="ms">${ms} ms</span><br>` +
+          `<em>Check DevTools Console: a "blocked by CORS policy" line = CORS; otherwise a network error.</em>`;
+        return false;
+      }
+    }
+
+    async function runAll() {
+      runBtn.disabled = true;
+      summaryEl.textContent = "Running…";
+      const results = await Promise.all(tests.map((t, i) => runOne(t, rowRefs[i])));
+      const passed = results.filter(Boolean).length;
+      summaryEl.textContent = `${passed} / ${tests.length} passed`;
+      summaryEl.className = "summary " + (passed === tests.length ? "ok" : "fail");
+      runBtn.disabled = false;
+    }
+
+    runBtn.addEventListener("click", runAll);
+  </script>
+</body>
+</html>
