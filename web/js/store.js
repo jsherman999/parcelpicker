@@ -87,25 +87,41 @@ function assembleRun(runRow, parcels) {
 export class ParcelStore {
   constructor(db) {
     this._db = db;
+    this._attach(db);
   }
 
   static async open() {
     return new ParcelStore(await openDb());
   }
 
-  _tx(stores, mode) {
-    return this._db.transaction(stores, mode);
+  // Close gracefully if another tab triggers a version change, so we don't
+  // block; the next _tx() call will transparently reopen.
+  _attach(db) {
+    db.onversionchange = () => db.close();
+  }
+
+  // Some browsers (notably iOS Safari, after bfcache restores or version
+  // changes) put the connection into a "closing" state, so db.transaction()
+  // throws "The database connection is closing." Reopen once and retry.
+  async _tx(stores, mode) {
+    try {
+      return this._db.transaction(stores, mode);
+    } catch (err) {
+      this._db = await openDb();
+      this._attach(this._db);
+      return this._db.transaction(stores, mode);
+    }
   }
 
   async _getAll(store) {
-    const tx = this._tx([store], "readonly");
+    const tx = await this._tx([store], "readonly");
     return req(tx.objectStore(store).getAll());
   }
 
   // Persist a completed/capped run plus its parcels and address aliases.
   async saveRun(run, aliases = []) {
     const now = Date.now();
-    const tx = this._tx(["runs", "parcels", "run_parcels", "address_aliases"], "readwrite");
+    const tx = await this._tx(["runs", "parcels", "run_parcels", "address_aliases"], "readwrite");
     const runId = await req(
       tx.objectStore("runs").add({
         input_address: run.input_address,
@@ -165,7 +181,7 @@ export class ParcelStore {
   }
 
   async getRun(runId) {
-    const tx = this._tx(["runs", "run_parcels", "parcels"], "readonly");
+    const tx = await this._tx(["runs", "run_parcels", "parcels"], "readonly");
     const runRow = await req(tx.objectStore("runs").get(runId));
     if (!runRow) return null;
 
@@ -207,7 +223,7 @@ export class ParcelStore {
   async resolveAddressAlias(normalizedAddress, maxAgeDays) {
     const clean = (normalizedAddress || "").trim();
     if (!clean) return null;
-    const tx = this._tx(["address_aliases"], "readonly");
+    const tx = await this._tx(["address_aliases"], "readonly");
     const row = await req(tx.objectStore("address_aliases").get(clean));
     if (!row) return null;
     const cutoff = Date.now() - Math.max(1, maxAgeDays) * DAY_MS;
@@ -219,7 +235,7 @@ export class ParcelStore {
     const clean = (seedParcelId || "").trim();
     if (!clean) return null;
     const cutoff = Date.now() - Math.max(1, maxAgeDays) * DAY_MS;
-    const tx = this._tx(["runs"], "readonly");
+    const tx = await this._tx(["runs"], "readonly");
     const rows = await req(tx.objectStore("runs").index("seed_parcel_id").getAll(clean));
     const matches = rows.filter(
       (r) =>
@@ -246,7 +262,7 @@ export class ParcelStore {
       if (recentRunIds.has(rp.run_id)) parcelIds.add(rp.parcel_id);
     }
 
-    const tx = this._tx(["parcels"], "readonly");
+    const tx = await this._tx(["parcels"], "readonly");
     const parcelsStore = tx.objectStore("parcels");
     const out = [];
     for (const pid of parcelIds) {
@@ -271,7 +287,7 @@ export class ParcelStore {
     const runs = await this._getAll("runs");
     const expiredRunIds = runs.filter((r) => r.created_at < cutoff).map((r) => r.id);
     if (expiredRunIds.length) {
-      const tx = this._tx(["runs", "run_parcels"], "readwrite");
+      const tx = await this._tx(["runs", "run_parcels"], "readwrite");
       const rpIndex = tx.objectStore("run_parcels").index("run_id");
       for (const id of expiredRunIds) {
         await req(tx.objectStore("runs").delete(id));
@@ -287,7 +303,7 @@ export class ParcelStore {
     const aliases = await this._getAll("address_aliases");
     const expiredAliases = aliases.filter((a) => a.updated_at < cutoff);
     if (expiredAliases.length) {
-      const tx = this._tx(["address_aliases"], "readwrite");
+      const tx = await this._tx(["address_aliases"], "readwrite");
       for (const a of expiredAliases) {
         await req(tx.objectStore("address_aliases").delete(a.normalized_address));
       }
@@ -303,7 +319,7 @@ export class ParcelStore {
       (p) => !referenced.has(p.parcel_id) && p.updated_at < cutoff
     );
     if (orphans.length) {
-      const tx = this._tx(["parcels"], "readwrite");
+      const tx = await this._tx(["parcels"], "readwrite");
       for (const p of orphans) await req(tx.objectStore("parcels").delete(p.parcel_id));
       await txDone(tx);
     }

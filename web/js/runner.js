@@ -44,11 +44,7 @@ export class ParcelLookupRunner {
     if (this._store) {
       const localSeed = await this._resolveSeedFromLocalCache(lon, lat);
       if (localSeed && localSeed.parcel_id) {
-        const cached = await this._store.getRecentRunForSeedParcel(
-          localSeed.parcel_id,
-          rings,
-          this._settings.retentionDays
-        );
+        const cached = await this._safeRecentRun(localSeed.parcel_id, rings);
         if (cached) {
           return this._buildCachedRunResponse(cached, rings, inputLabel, localSeed.parcel_id);
         }
@@ -70,11 +66,7 @@ export class ParcelLookupRunner {
       budget: new RequestBudget(this._settings.maxRequests),
     });
     if (this._store && providerSeed && providerSeed.parcel_id) {
-      const cached = await this._store.getRecentRunForSeedParcel(
-        providerSeed.parcel_id,
-        rings,
-        this._settings.retentionDays
-      );
+      const cached = await this._safeRecentRun(providerSeed.parcel_id, rings);
       if (cached) {
         return this._buildCachedRunResponse(cached, rings, inputLabel, providerSeed.parcel_id);
       }
@@ -204,9 +196,15 @@ export class ParcelLookupRunner {
         if (llmSummary) run.summary = llmSummary;
       }
 
+      // Persistence is best-effort: a cache-write failure must not turn a
+      // successful lookup into a failed run.
       if (this._store) {
-        const aliases = this._computeAliases(seed, inputAlias);
-        run.id = await this._store.saveRun(run, aliases);
+        try {
+          const aliases = this._computeAliases(seed, inputAlias);
+          run.id = await this._store.saveRun(run, aliases);
+        } catch (err) {
+          console.warn("cache save failed:", err);
+        }
       }
       return run;
     } catch (err) {
@@ -225,22 +223,42 @@ export class ParcelLookupRunner {
   // ---- cache helpers (port of runner.py) --------------------------------
 
   async _cleanup() {
-    if (this._store) {
+    if (!this._store) return;
+    try {
       await this._store.cleanupExpiredData(this._settings.retentionDays);
+    } catch (err) {
+      console.warn("cache cleanup failed:", err);
+    }
+  }
+
+  // Best-effort cache read for a seed parcel; never throws.
+  async _safeRecentRun(seedParcelId, rings) {
+    if (!this._store) return null;
+    try {
+      return await this._store.getRecentRunForSeedParcel(
+        seedParcelId,
+        rings,
+        this._settings.retentionDays
+      );
+    } catch (err) {
+      console.warn("cache lookup failed:", err);
+      return null;
     }
   }
 
   async _getCachedRunForAddress(normalizedInput, rings, inputAddress) {
-    const parcelId = await this._store.resolveAddressAlias(
-      normalizedInput,
-      this._settings.retentionDays
-    );
+    let parcelId = null;
+    try {
+      parcelId = await this._store.resolveAddressAlias(
+        normalizedInput,
+        this._settings.retentionDays
+      );
+    } catch (err) {
+      console.warn("alias lookup failed:", err);
+      return null;
+    }
     if (!parcelId) return null;
-    const cached = await this._store.getRecentRunForSeedParcel(
-      parcelId,
-      rings,
-      this._settings.retentionDays
-    );
+    const cached = await this._safeRecentRun(parcelId, rings);
     if (!cached) return null;
     return this._buildCachedRunResponse(cached, rings, inputAddress, parcelId);
   }
@@ -284,7 +302,13 @@ export class ParcelLookupRunner {
   }
 
   async _resolveSeedFromLocalCache(lon, lat) {
-    const candidates = await this._store.listRecentCachedParcels(this._settings.retentionDays);
+    let candidates = [];
+    try {
+      candidates = await this._store.listRecentCachedParcels(this._settings.retentionDays);
+    } catch (err) {
+      console.warn("local cache scan failed:", err);
+      return null;
+    }
     for (const item of candidates) {
       if (item.geometry && this._pointInGeometry(lon, lat, item.geometry)) {
         return {
