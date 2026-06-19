@@ -5,8 +5,18 @@
 
 import { createService } from "./providers/registry.js";
 import { ParcelLookupRunner } from "./runner.js";
+import { ParcelStore } from "./store.js";
 import { SETTINGS, REQUEST } from "./config.js";
 import { runToCsv, runToGeoJson, downloadText } from "./export.js";
+
+// Open the IndexedDB store up front. If it's unavailable (e.g. private mode),
+// caching/history are disabled and the app still works in-memory.
+let store = null;
+try {
+  store = await ParcelStore.open();
+} catch (err) {
+  console.warn("IndexedDB unavailable — cache and history disabled:", err);
+}
 
 const countyConfig = {
   wright: {
@@ -129,7 +139,7 @@ function getRunner() {
   const county = getCounty();
   if (!runners[county]) {
     const service = createService(county, REQUEST);
-    runners[county] = new ParcelLookupRunner(service, SETTINGS, county);
+    runners[county] = new ParcelLookupRunner(service, SETTINGS, county, store);
   }
   return runners[county];
 }
@@ -371,7 +381,63 @@ function handleRunResult(run) {
   if (run.status === "not_found") throw new Error(run.error || "No parcel found.");
   renderRun(run);
   const suffix = run.status === "capped" ? " (capped by limits)" : "";
-  setStatus(`Run ${run.id} complete${suffix}.`);
+  const cacheSuffix = run.from_cache ? " (loaded from 30-day cache)" : "";
+  setStatus(`Run ${run.id} complete${suffix}${cacheSuffix}.`);
+  refreshHistory();
+}
+
+const historyPanelEl = document.getElementById("history-panel");
+const historyListEl = document.getElementById("history-list");
+
+async function refreshHistory() {
+  if (!store || !historyListEl) return;
+  let runs = [];
+  try {
+    runs = await store.listRuns(10);
+  } catch (err) {
+    return;
+  }
+  if (!runs.length) {
+    historyPanelEl.classList.add("hidden");
+    return;
+  }
+  historyListEl.innerHTML = "";
+  for (const run of runs) {
+    const li = document.createElement("li");
+    li.className = "history-item";
+
+    const label = run.input_address.startsWith("POINT(") ? "map click" : run.input_address;
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "history-link";
+    button.dataset.runId = run.id;
+    button.textContent = `#${run.id} ${label}`;
+
+    const meta = document.createElement("span");
+    meta.className = "history-meta";
+    meta.textContent = `${run.status} • ${new Date(run.created_at).toLocaleString()}`;
+
+    li.append(button, meta);
+    historyListEl.appendChild(li);
+  }
+  historyPanelEl.classList.remove("hidden");
+}
+
+if (historyListEl) {
+  historyListEl.addEventListener("click", async (event) => {
+    const button = event.target.closest(".history-link");
+    if (!button || !store) return;
+    const runId = Number(button.dataset.runId);
+    try {
+      const run = await store.getRun(runId);
+      if (run) {
+        renderRun(run);
+        setStatus(`Loaded run ${run.id} from history.`);
+      }
+    } catch (err) {
+      setStatus("Could not load run from history.", true);
+    }
+  });
 }
 
 function handleRunError(error) {
@@ -438,3 +504,6 @@ map.on("click", (event) => {
   if (lookupButton.disabled) return;
   runLookupByPoint(event.latlng.lat, event.latlng.lng);
 });
+
+// Populate run history from any prior session.
+refreshHistory();

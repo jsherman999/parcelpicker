@@ -13,8 +13,8 @@ This is **Phase 1** of the port described in `../docs/in-browser-port-plan.md`:
 - ✅ Lookup runner: address + map-click seeds, ring expansion, caps
 - ✅ Geocoder fallback swapped from Census to Nominatim (bounded to Minnesota)
 - ✅ Client-side CSV / GeoJSON export
-- ⏳ Phase 2: IndexedDB 30-day cache + run history
-- ⏳ Phase 3: (export already done here)
+- ✅ Phase 2: IndexedDB 30-day cache (address aliases + seed-parcel reuse +
+  local point-in-polygon seeding) and a Recent Runs history panel
 - ⏳ Phase 4: LLM owner-normalization/summary with a user-supplied key
 
 The Python backend under `../backend/` is left intact as the reference
@@ -45,7 +45,8 @@ js/
   config.js             limits + per-request settings
   geocode.js            Nominatim address -> point
   export.js             client-side CSV / GeoJSON
-  runner.js             ring traversal (was services/runner.py)
+  store.js              IndexedDB cache + history (was db.py)
+  runner.js             ring traversal + cache (was services/runner.py)
   providers/
     base.js             was services/base.py
     wright.js hennepin.js stlouis.js sherburne.js anoka.js
@@ -57,4 +58,6 @@ js/
 - **Geocode accuracy:** Nominatim is only the fallback (used when a county's own
   address query misses; map-click never uses it). Bounded to a Minnesota
   viewbox; validate against real addresses and tighten if needed.
-- **No persistence yet:** runs live only in memory until Phase 2 adds IndexedDB.
+- **Persistence:** runs, parcels, and address aliases are cached in IndexedDB
+  for 30 days; repeat lookups and clicks inside cached parcels are served
+  locally. Clearing site data resets the cache.

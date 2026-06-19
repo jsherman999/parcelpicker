@@ -1,56 +1,110 @@
 // Browser port of backend/services/runner.py ParcelLookupRunner.
 //
-// Phase 1: in-memory only. No IndexedDB cache and no LLM yet (those are
-// Phase 2 and Phase 4). Owner normalization uses the deterministic fallback;
-// the run object matches the shape the old /api/lookup response returned.
+// Phase 2: in-browser IndexedDB cache + run history. Owner normalization still
+// uses the deterministic fallback (LLM is Phase 4). The run object matches the
+// shape the old /api/lookup response returned.
 
 import { RequestBudget } from "./util.js";
 
-let runCounter = 0;
-function nextRunId() {
-  runCounter += 1;
-  return runCounter;
-}
+const UNSET = Symbol("unset");
 
 export class ParcelLookupRunner {
-  constructor(service, settings, county) {
+  constructor(service, settings, county, store = null) {
     this._service = service;
     this._settings = settings;
     this._provider = service.sourceLabel;
     this._county = county;
+    this._store = store;
   }
 
   async runLookup({ address, rings, useLlm = false }) {
+    await this._cleanup();
+    const normalizedInput = this._normalizeAlias(address);
+
+    if (this._store) {
+      const cached = await this._getCachedRunForAddress(normalizedInput, rings, address);
+      if (cached) return cached;
+    }
+
     return this._runCore({
       inputLabel: address,
       rings,
       useLlm,
       notFoundError: "No parcel match found for the provided address.",
+      inputAlias: normalizedInput,
       seedResolver: (budget) => this._service.lookup(address, budget),
     });
   }
 
   async runLookupFromPoint({ lat, lon, rings, useLlm = false }) {
+    await this._cleanup();
     const inputLabel = `POINT(${lat.toFixed(6)}, ${lon.toFixed(6)})`;
+
+    if (this._store) {
+      const localSeed = await this._resolveSeedFromLocalCache(lon, lat);
+      if (localSeed && localSeed.parcel_id) {
+        const cached = await this._store.getRecentRunForSeedParcel(
+          localSeed.parcel_id,
+          rings,
+          this._settings.retentionDays
+        );
+        if (cached) {
+          return this._buildCachedRunResponse(cached, rings, inputLabel, localSeed.parcel_id);
+        }
+        return this._runCore({
+          inputLabel,
+          rings,
+          useLlm,
+          notFoundError: "No parcel found at clicked map location.",
+          inputAlias: null,
+          seedResolver: (budget) => this._service.lookupByPoint({ lon, lat, budget }),
+          preResolvedSeed: localSeed,
+        });
+      }
+    }
+
+    const providerSeed = await this._service.lookupByPoint({
+      lon,
+      lat,
+      budget: new RequestBudget(this._settings.maxRequests),
+    });
+    if (this._store && providerSeed && providerSeed.parcel_id) {
+      const cached = await this._store.getRecentRunForSeedParcel(
+        providerSeed.parcel_id,
+        rings,
+        this._settings.retentionDays
+      );
+      if (cached) {
+        return this._buildCachedRunResponse(cached, rings, inputLabel, providerSeed.parcel_id);
+      }
+    }
+
     return this._runCore({
       inputLabel,
       rings,
       useLlm,
       notFoundError: "No parcel found at clicked map location.",
+      inputAlias: null,
       seedResolver: (budget) => this._service.lookupByPoint({ lon, lat, budget }),
+      preResolvedSeed: providerSeed,
     });
   }
 
-  async _runCore({ inputLabel, rings, notFoundError, seedResolver }) {
-    const runId = nextRunId();
+  async _runCore({
+    inputLabel,
+    rings,
+    notFoundError,
+    inputAlias,
+    seedResolver,
+    preResolvedSeed = UNSET,
+  }) {
     const createdAt = new Date().toISOString();
     const budget = new RequestBudget(this._settings.maxRequests);
 
     try {
-      const seed = await seedResolver(budget);
+      const seed = preResolvedSeed === UNSET ? await seedResolver(budget) : preResolvedSeed;
       if (!seed) {
         return this._buildRun({
-          runId,
           inputLabel,
           rings,
           status: "not_found",
@@ -110,7 +164,6 @@ export class ParcelLookupRunner {
       }));
 
       const run = this._buildRun({
-        runId,
         inputLabel,
         rings,
         status,
@@ -120,10 +173,14 @@ export class ParcelLookupRunner {
         createdAt,
       });
       run.summary = this._deterministicSummary(run);
+
+      if (this._store) {
+        const aliases = this._computeAliases(seed, inputAlias);
+        run.id = await this._store.saveRun(run, aliases);
+      }
       return run;
     } catch (err) {
       return this._buildRun({
-        runId,
         inputLabel,
         rings,
         status: "failed",
@@ -135,14 +192,127 @@ export class ParcelLookupRunner {
     }
   }
 
-  _buildRun({ runId, inputLabel, rings, status, seedParcelId, error, parcels, createdAt }) {
+  // ---- cache helpers (port of runner.py) --------------------------------
+
+  async _cleanup() {
+    if (this._store) {
+      await this._store.cleanupExpiredData(this._settings.retentionDays);
+    }
+  }
+
+  async _getCachedRunForAddress(normalizedInput, rings, inputAddress) {
+    const parcelId = await this._store.resolveAddressAlias(
+      normalizedInput,
+      this._settings.retentionDays
+    );
+    if (!parcelId) return null;
+    const cached = await this._store.getRecentRunForSeedParcel(
+      parcelId,
+      rings,
+      this._settings.retentionDays
+    );
+    if (!cached) return null;
+    return this._buildCachedRunResponse(cached, rings, inputAddress, parcelId);
+  }
+
+  _buildCachedRunResponse(cachedRun, rings, inputLabel, seedParcelId) {
+    const trimmed = this._trimRunToRings(cachedRun, rings);
+    trimmed.input_address = inputLabel;
+    trimmed.seed_parcel_id = trimmed.seed_parcel_id || seedParcelId;
+    trimmed.from_cache = true;
+    const base = (trimmed.summary || "").trim();
+    trimmed.summary = base
+      ? `${base} Loaded from 30-day local cache.`
+      : "Loaded from 30-day local cache.";
+    return trimmed;
+  }
+
+  _trimRunToRings(run, rings) {
+    const parcels = (run.parcels || []).filter(
+      (p) => (parseInt(p.ring_number, 10) || 0) <= rings
+    );
+    const ownerKeys = new Set();
+    for (const p of parcels) {
+      const key = (p.normalized_owner_name || p.owner_name || "").trim().toUpperCase();
+      if (key) ownerKeys.add(key);
+    }
+    return {
+      ...run,
+      parcels,
+      rings_requested: rings,
+      parcel_count: parcels.length,
+      owner_count: ownerKeys.size,
+    };
+  }
+
+  _computeAliases(seed, inputAlias) {
+    const aliases = [];
+    if (inputAlias) aliases.push(inputAlias);
+    const siteAlias = this._normalizeAlias(seed.site_address);
+    if (siteAlias) aliases.push(siteAlias);
+    return aliases;
+  }
+
+  async _resolveSeedFromLocalCache(lon, lat) {
+    const candidates = await this._store.listRecentCachedParcels(this._settings.retentionDays);
+    for (const item of candidates) {
+      if (item.geometry && this._pointInGeometry(lon, lat, item.geometry)) {
+        return {
+          parcel_id: String(item.parcel_id || "").trim(),
+          owner_name: String(item.owner_name || "").trim(),
+          site_address: String(item.site_address || "").trim(),
+          geometry: item.geometry,
+          source: String(item.source || "local_cache"),
+          matched_by: "local_cache_intersect",
+        };
+      }
+    }
+    return null;
+  }
+
+  // ---- point-in-polygon (ray casting), port of runner.py ----------------
+
+  _pointInGeometry(lon, lat, geometry) {
+    if (!geometry || geometry.type !== "Polygon") return false;
+    const coords = geometry.coordinates;
+    if (!Array.isArray(coords) || !coords.length) return false;
+    const outer = coords[0];
+    if (!Array.isArray(outer) || !this._pointInRing(lon, lat, outer)) return false;
+    for (let i = 1; i < coords.length; i += 1) {
+      if (Array.isArray(coords[i]) && this._pointInRing(lon, lat, coords[i])) return false;
+    }
+    return true;
+  }
+
+  _pointInRing(lon, lat, ring) {
+    const count = ring.length;
+    if (count < 3) return false;
+    let inside = false;
+    let j = count - 1;
+    for (let i = 0; i < count; i += 1) {
+      const xi = ring[i][0];
+      const yi = ring[i][1];
+      const xj = ring[j][0];
+      const yj = ring[j][1];
+      const intersects =
+        yi > lat !== yj > lat &&
+        lon < ((xj - xi) * (lat - yi)) / ((yj - yi) || 1e-12) + xi;
+      if (intersects) inside = !inside;
+      j = i;
+    }
+    return inside;
+  }
+
+  // ---- run assembly + normalization -------------------------------------
+
+  _buildRun({ inputLabel, rings, status, seedParcelId, error, parcels, createdAt }) {
     const ownerKeys = new Set();
     for (const parcel of parcels) {
       const key = (parcel.normalized_owner_name || parcel.owner_name || "").trim().toUpperCase();
       if (key) ownerKeys.add(key);
     }
     return {
-      id: runId,
+      id: null,
       input_address: inputLabel,
       rings_requested: rings,
       status,
@@ -162,6 +332,10 @@ export class ParcelLookupRunner {
 
   _normalizeOwner(owner) {
     return String(owner || "").trim().split(/\s+/).join(" ").toUpperCase();
+  }
+
+  _normalizeAlias(address) {
+    return String(address || "").trim().toUpperCase().split(/\s+/).join(" ");
   }
 
   _deterministicSummary(run) {
