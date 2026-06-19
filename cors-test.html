@@ -201,6 +201,9 @@
     }
 
     runBtn.addEventListener("click", runAll);
+
+    // Auto-run on load so opening the URL (e.g. in mobile Safari) is a single tap.
+    window.addEventListener("load", () => { runAll(); });
   </script>
 </body>
 </html>
