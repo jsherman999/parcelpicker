@@ -9,12 +9,13 @@ import { RequestBudget } from "./util.js";
 const UNSET = Symbol("unset");
 
 export class ParcelLookupRunner {
-  constructor(service, settings, county, store = null) {
+  constructor(service, settings, county, store = null, llm = null) {
     this._service = service;
     this._settings = settings;
     this._provider = service.sourceLabel;
     this._county = county;
     this._store = store;
+    this._llm = llm;
   }
 
   async runLookup({ address, rings, useLlm = false }) {
@@ -93,6 +94,7 @@ export class ParcelLookupRunner {
   async _runCore({
     inputLabel,
     rings,
+    useLlm = false,
     notFoundError,
     inputAlias,
     seedResolver,
@@ -100,6 +102,7 @@ export class ParcelLookupRunner {
   }) {
     const createdAt = new Date().toISOString();
     const budget = new RequestBudget(this._settings.maxRequests);
+    const llmEnabled = Boolean(useLlm && this._llm && this._llm.isAvailable);
 
     try {
       const seed = preResolvedSeed === UNSET ? await seedResolver(budget) : preResolvedSeed;
@@ -151,17 +154,34 @@ export class ParcelLookupRunner {
         if (status === "capped") break;
       }
 
-      const parcels = parcelsWithRing.map(([parcel, ring, isSeed]) => ({
-        parcel_id: parcel.parcel_id,
-        owner_name: parcel.owner_name,
-        normalized_owner_name: this._normalizeOwner(parcel.owner_name),
-        site_address: parcel.site_address,
-        geometry: parcel.geometry,
-        source: parcel.source,
-        matched_by: parcel.matched_by,
-        ring_number: ring,
-        is_seed: isSeed,
-      }));
+      const normalizeCache = new Map();
+      let llmCount = 0;
+      const parcels = [];
+      for (const [parcel, ring, isSeed] of parcelsWithRing) {
+        let normalizedOwner = this._normalizeOwner(parcel.owner_name);
+        if (llmEnabled) {
+          const ownerKey = parcel.owner_name.trim();
+          if (normalizeCache.has(ownerKey)) {
+            normalizedOwner = normalizeCache.get(ownerKey);
+          } else if (ownerKey && llmCount < this._settings.maxLlmNormalizations) {
+            const candidate = await this._llm.normalizeOwnerName(ownerKey);
+            normalizedOwner = candidate.trim() || normalizedOwner;
+            normalizeCache.set(ownerKey, normalizedOwner);
+            llmCount += 1;
+          }
+        }
+        parcels.push({
+          parcel_id: parcel.parcel_id,
+          owner_name: parcel.owner_name,
+          normalized_owner_name: normalizedOwner,
+          site_address: parcel.site_address,
+          geometry: parcel.geometry,
+          source: parcel.source,
+          matched_by: parcel.matched_by,
+          ring_number: ring,
+          is_seed: isSeed,
+        });
+      }
 
       const run = this._buildRun({
         inputLabel,
@@ -171,8 +191,18 @@ export class ParcelLookupRunner {
         error: null,
         parcels,
         createdAt,
+        llmEnabled,
       });
       run.summary = this._deterministicSummary(run);
+      if (llmEnabled) {
+        const llmSummary = await this._llm.summarizeLookup({
+          inputAddress: inputLabel,
+          ringsRequested: rings,
+          parcelCount: run.parcel_count,
+          ownerCount: run.owner_count,
+        });
+        if (llmSummary) run.summary = llmSummary;
+      }
 
       if (this._store) {
         const aliases = this._computeAliases(seed, inputAlias);
@@ -305,7 +335,7 @@ export class ParcelLookupRunner {
 
   // ---- run assembly + normalization -------------------------------------
 
-  _buildRun({ inputLabel, rings, status, seedParcelId, error, parcels, createdAt }) {
+  _buildRun({ inputLabel, rings, status, seedParcelId, error, parcels, createdAt, llmEnabled = false }) {
     const ownerKeys = new Set();
     for (const parcel of parcels) {
       const key = (parcel.normalized_owner_name || parcel.owner_name || "").trim().toUpperCase();
@@ -317,7 +347,7 @@ export class ParcelLookupRunner {
       rings_requested: rings,
       status,
       provider: this._provider,
-      llm_enabled: false,
+      llm_enabled: llmEnabled,
       seed_parcel_id: seedParcelId,
       summary: null,
       error,

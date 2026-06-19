@@ -6,8 +6,11 @@
 import { createService } from "./providers/registry.js";
 import { ParcelLookupRunner } from "./runner.js";
 import { ParcelStore } from "./store.js";
+import { LLMService } from "./llm.js";
 import { SETTINGS, REQUEST } from "./config.js";
 import { runToCsv, runToGeoJson, downloadText } from "./export.js";
+
+const llm = new LLMService();
 
 // Open the IndexedDB store up front. If it's unavailable (e.g. private mode),
 // caching/history are disabled and the app still works in-memory.
@@ -139,7 +142,7 @@ function getRunner() {
   const county = getCounty();
   if (!runners[county]) {
     const service = createService(county, REQUEST);
-    runners[county] = new ParcelLookupRunner(service, SETTINGS, county, store);
+    runners[county] = new ParcelLookupRunner(service, SETTINGS, county, store, llm);
   }
   return runners[county];
 }
@@ -504,6 +507,52 @@ map.on("click", (event) => {
   if (lookupButton.disabled) return;
   runLookupByPoint(event.latlng.lat, event.latlng.lng);
 });
+
+// ---- LLM settings panel (Phase 4) -------------------------------------
+const llmProviderEl = document.getElementById("llm-provider");
+const llmModelEl = document.getElementById("llm-model");
+const llmKeyEl = document.getElementById("llm-key");
+const llmSaveBtn = document.getElementById("llm-save");
+const llmClearBtn = document.getElementById("llm-clear");
+const llmStatusEl = document.getElementById("llm-status");
+
+function refreshLlmAvailability() {
+  const available = llm.isAvailable;
+  useLlmInput.disabled = !available;
+  if (!available) useLlmInput.checked = false;
+}
+
+function initLlmSettings() {
+  const cfg = llm.getConfig();
+  llmProviderEl.value = cfg.provider;
+  llmModelEl.value = cfg.model;
+  llmKeyEl.value = cfg.apiKey;
+  if (llm.isAvailable) {
+    llmStatusEl.textContent = `Configured: ${cfg.provider} / ${cfg.model}.`;
+  }
+  refreshLlmAvailability();
+}
+
+llmSaveBtn.addEventListener("click", () => {
+  const provider = llmProviderEl.value || "openai";
+  const model = (llmModelEl.value || "").trim() || "gpt-4o-mini";
+  const apiKey = (llmKeyEl.value || "").trim();
+  llm.saveConfig({ provider, model, apiKey, enabled: true });
+  llmModelEl.value = model;
+  refreshLlmAvailability();
+  llmStatusEl.textContent = llm.isAvailable
+    ? `Saved. LLM enabled (${provider} / ${model}). Tick the checkbox above to use it.`
+    : "Saved, but no API key entered — LLM stays off.";
+});
+
+llmClearBtn.addEventListener("click", () => {
+  llm.saveConfig({ apiKey: "" });
+  llmKeyEl.value = "";
+  refreshLlmAvailability();
+  llmStatusEl.textContent = "Key cleared. LLM disabled.";
+});
+
+initLlmSettings();
 
 // Populate run history from any prior session.
 refreshHistory();

@@ -58,8 +58,31 @@
 
         <label class="checkbox-row" for="use-llm">
           <input id="use-llm" type="checkbox" disabled />
-          <span>Enable LLM owner normalization/summary (coming in Phase 4)</span>
+          <span>Enable LLM owner normalization/summary</span>
         </label>
+
+        <details id="llm-settings" class="llm-settings">
+          <summary>LLM Settings (optional)</summary>
+          <p class="hint">
+            Owner-name normalization &amp; run summaries via your own API key.
+            The key is stored only in this browser (localStorage) and sent only
+            to the provider you select. Use a scoped/limited key.
+          </p>
+          <label for="llm-provider">Provider</label>
+          <select id="llm-provider">
+            <option value="openai">OpenAI</option>
+            <option value="openrouter">OpenRouter</option>
+          </select>
+          <label for="llm-model">Model</label>
+          <input id="llm-model" type="text" placeholder="gpt-4o-mini" />
+          <label for="llm-key">API Key</label>
+          <input id="llm-key" type="password" autocomplete="off" placeholder="sk-..." />
+          <div class="lookup-row">
+            <button id="llm-save" type="button">Save</button>
+            <button id="llm-clear" type="button">Clear</button>
+          </div>
+          <p id="llm-status" class="hint"></p>
+        </details>
 
         <div class="lookup-row">
           <button id="lookup">Run Lookup</button>

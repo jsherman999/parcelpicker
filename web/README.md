@@ -15,7 +15,10 @@ This is **Phase 1** of the port described in `../docs/in-browser-port-plan.md`:
 - ✅ Client-side CSV / GeoJSON export
 - ✅ Phase 2: IndexedDB 30-day cache (address aliases + seed-parcel reuse +
   local point-in-polygon seeding) and a Recent Runs history panel
-- ⏳ Phase 4: LLM owner-normalization/summary with a user-supplied key
+- ✅ Phase 4: LLM owner-normalization/summary via a user-supplied OpenAI or
+  OpenRouter key (stored in localStorage, graceful fallback)
+
+The port is feature-complete versus the Python backend.
 
 The Python backend under `../backend/` is left intact as the reference
 implementation.
@@ -46,6 +49,7 @@ js/
   geocode.js            Nominatim address -> point
   export.js             client-side CSV / GeoJSON
   store.js              IndexedDB cache + history (was db.py)
+  llm.js                owner normalize + summary (was services/llm.py)
   runner.js             ring traversal + cache (was services/runner.py)
   providers/
     base.js             was services/base.py
@@ -61,3 +65,6 @@ js/
 - **Persistence:** runs, parcels, and address aliases are cached in IndexedDB
   for 30 days; repeat lookups and clicks inside cached parcels are served
   locally. Clearing site data resets the cache.
+- **LLM key:** entered in the LLM Settings panel and kept in `localStorage` on
+  this origin only. It is sent only to the chosen provider. Any script on the
+  origin can read it, so use a scoped/limited key; "Clear" removes it.

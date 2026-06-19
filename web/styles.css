@@ -429,3 +429,19 @@ tbody tr:hover {
   font-size: 0.8rem;
   color: var(--muted, #777);
 }
+
+/* LLM settings panel (Phase 4) */
+.llm-settings {
+  margin: 8px 0 4px;
+  border: 1px solid var(--border, #2a3b4d);
+  border-radius: 8px;
+  padding: 8px 12px;
+}
+.llm-settings > summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.llm-settings label {
+  display: block;
+  margin-top: 8px;
+}
