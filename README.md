@@ -2,6 +2,14 @@
 
 ParcelPicker is a local-first web app for parcel intelligence. It runs on your Mac and exposes a LAN-accessible web interface.
 
+> **New: all-in-browser build.** A no-server static version lives in [`web/`](web/).
+> It runs entirely in the browser — calling the county ArcGIS endpoints and a
+> geocoder directly (CORS-verified via [`cors-test.html`](cors-test.html)) — with
+> IndexedDB caching, client-side exports, and optional LLM assist via your own
+> API key. See [`web/README.md`](web/README.md) and the port plan in
+> [`docs/in-browser-port-plan.md`](docs/in-browser-port-plan.md). The Python
+> backend below remains the reference implementation.
+
 Supports **Wright, Hennepin, and St. Louis counties in Minnesota**, with the full planned phases:
 
 1. Address -> seed parcel lookup (parcel ID, owner, address, geometry).

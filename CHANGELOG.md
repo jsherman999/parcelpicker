@@ -2,6 +2,34 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0] - 2026-06-19
+
+### Added
+- All-in-browser build under `web/`: a no-server static version of the app that
+  calls the county ArcGIS endpoints and a geocoder directly from the browser
+  (CORS-verified). The Python backend is retained unchanged as reference.
+- `web/js/providers/*` — ES-module ports of `services/base.py` and the five
+  county adapters (Wright, Hennepin, St. Louis, Sherburne, Anoka).
+- `web/js/runner.js` — client-side lookup/ring traversal with the cache paths
+  from `services/runner.py`.
+- `web/js/store.js` — IndexedDB port of `db.py` (30-day cache, address aliases,
+  seed-parcel reuse, local point-in-polygon seeding) plus a Recent Runs panel.
+- `web/js/geocode.js` — Nominatim geocoder (bounded to Minnesota) replacing the
+  Census fallback, which does not send CORS headers.
+- `web/js/export.js` — client-side CSV / GeoJSON downloads (replaces the
+  `/api/runs/{id}` export routes).
+- `web/js/llm.js` — optional owner normalization / summary using a user-supplied
+  OpenAI or OpenRouter key stored in `localStorage`, with deterministic
+  fallback.
+- `cors-test.html` — browser harness that verifies every external endpoint
+  (county servers, geocoders, LLM providers) is reachable cross-origin.
+- `docs/in-browser-port-plan.md` — the file-by-file port plan.
+
+### Changed
+- Address matching now extracts a street-only variant from full input and tries
+  it against the county address field before geocoding, so street-only fields
+  (e.g. Wright `PHYSADDR`) match without depending on geocode accuracy.
+
 ## [0.6.0] - 2026-04-25
 
 ### Added
