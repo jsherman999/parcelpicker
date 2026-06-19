@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ParcelPicker — CORS Test Harness</title>
+  <style>
+    :root { color-scheme: light dark; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      margin: 0; padding: 24px; line-height: 1.45;
+      max-width: 1100px; margin-inline: auto;
+    }
+    h1 { margin: 0 0 4px; font-size: 1.5rem; }
+    h2 { font-size: 1.1rem; margin: 28px 0 8px; }
+    .sub { color: #666; margin: 0 0 16px; }
+    .bar {
+      display: flex; gap: 12px; align-items: center; flex-wrap: wrap;
+      padding: 12px; border: 1px solid #ccc; border-radius: 8px; margin-bottom: 16px;
+    }
+    .origin { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    button {
+      font-size: 0.95rem; padding: 8px 16px; border-radius: 6px;
+      border: 1px solid #888; background: #1565c0; color: #fff; cursor: pointer;
+    }
+    button:disabled { opacity: 0.5; cursor: default; }
+    .summary { font-weight: 600; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+    th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #ddd; vertical-align: top; }
+    th { background: rgba(128,128,128,0.12); }
+    td.status { white-space: nowrap; font-weight: 600; }
+    .ok { color: #1b7e3c; }
+    .fail { color: #c62828; }
+    .pending, .skip { color: #999; }
+    .detail { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.8rem; color: #555; word-break: break-word; }
+    .url { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.78rem; color: #777; word-break: break-all; }
+    .note { background: rgba(255,193,7,0.12); border: 1px solid rgba(255,193,7,0.5); border-radius: 8px; padding: 12px 16px; margin-top: 20px; font-size: 0.88rem; }
+    .note code { background: rgba(128,128,128,0.18); padding: 1px 4px; border-radius: 3px; }
+    .ms { color: #999; font-size: 0.8rem; }
+    .llm-form { display: flex; flex-direction: column; gap: 10px; padding: 12px; border: 1px solid #ccc; border-radius: 8px; margin-bottom: 12px; }
+    .llm-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .llm-row label { width: 110px; font-size: 0.9rem; }
+    .llm-row input { flex: 1; min-width: 200px; padding: 7px 9px; border: 1px solid #999; border-radius: 6px; font-family: ui-monospace, monospace; font-size: 0.85rem; }
+    .privacy { font-size: 0.82rem; color: #777; }
+  </style>
+</head>
+<body>
+  <h1>ParcelPicker — CORS Test Harness</h1>
+  <p class="sub">Checks whether each external endpoint the app depends on can be called directly from the browser (the prerequisite for an all-in-browser, no-server build).</p>
+
+  <div class="bar">
+    <div>Requesting origin: <span class="origin" id="origin"></span></div>
+    <button id="run">Run endpoint tests</button>
+    <span class="summary" id="summary"></span>
+  </div>
+
+  <h2>Data endpoints (no key needed — auto-run on load)</h2>
+  <table>
+    <thead>
+      <tr><th>Endpoint</th><th>Type</th><th class="status">Result</th><th>Detail</th></tr>
+    </thead>
+    <tbody id="rows"></tbody>
+  </table>
+
+  <h2>LLM providers (optional — paste a throwaway key to test)</h2>
+  <div class="llm-form">
+    <div class="llm-row">
+      <label for="openai-key">OpenAI key</label>
+      <input id="openai-key" type="password" autocomplete="off" placeholder="sk-... (leave blank to skip)" />
+    </div>
+    <div class="llm-row">
+      <label for="openrouter-key">OpenRouter key</label>
+      <input id="openrouter-key" type="password" autocomplete="off" placeholder="sk-or-... (leave blank to skip)" />
+    </div>
+    <div class="llm-row">
+      <button id="run-llm">Test LLM endpoints</button>
+      <span class="privacy">Keys are held in memory for this test only — not stored, not logged, sent only to the provider you entered them for. Use a throwaway/limited key.</span>
+    </div>
+  </div>
+  <table>
+    <thead>
+      <tr><th>Endpoint</th><th>Type</th><th class="status">Result</th><th>Detail</th></tr>
+    </thead>
+    <tbody id="llm-rows"></tbody>
+  </table>
+
+  <div class="note">
+    <strong>How to read this:</strong>
+    <ul>
+      <li><span class="ok">✅ PASS</span> — the browser completed the cross-origin request. This endpoint works in an all-in-browser build from <em>this origin</em>.</li>
+      <li><span class="fail">❌ FAIL</span> — the <code>fetch</code> was rejected. Browsers report CORS blocks and network errors identically as <code>TypeError: Failed to fetch / Load failed</code>. <strong>Open DevTools → Console</strong> for the precise reason: a line with <em>"blocked by CORS policy"</em> = CORS; otherwise a network error.</li>
+      <li><strong>LLM rows:</strong> getting <em>any</em> HTTP status back — even <code>401</code>/<code>403</code> from an invalid key — means <strong>CORS passed</strong> (the browser could only read the response because the server allowed it). A bad-key 401 is a ✅ for our purposes; only a rejected <code>fetch</code> is a CORS/network ❌.</li>
+    </ul>
+    Origin matters: some servers only allow specific origins. For a trustworthy result, serve this from the origin you intend to deploy to. Avoid <code>file://</code> — its origin is <code>null</code> and behaves differently.
+  </div>
+
+  <script>
+    // ---- Data endpoints (mirrored from backend/services/*.py) -------------
+    const ARCGIS_PARAMS = (idField) => new URLSearchParams({
+      where: "1=1", outFields: idField, returnGeometry: "false",
+      resultRecordCount: "1", f: "json",
+    });
+
+    const tests = [
+      { name: "Wright County (parcels)", type: "ArcGIS Online",
+        url: "https://services2.arcgis.com/CiQCvRGImIxsaFnM/arcgis/rest/services/Parcel_Data/FeatureServer/0/query",
+        params: ARCGIS_PARAMS("PID"), kind: "arcgis" },
+      { name: "Hennepin County (parcels)", type: "Self-hosted ArcGIS",
+        url: "https://gis.hennepin.us/arcgis/rest/services/HennepinData/LAND_PROPERTY/MapServer/1/query",
+        params: ARCGIS_PARAMS("PID"), kind: "arcgis" },
+      { name: "Hennepin County (address points)", type: "Self-hosted ArcGIS",
+        url: "https://gis.hennepin.us/arcgis/rest/services/HennepinData/LAND_PROPERTY/MapServer/0/query",
+        params: ARCGIS_PARAMS("PID"), kind: "arcgis" },
+      { name: "St. Louis County (parcels)", type: "Self-hosted ArcGIS",
+        url: "https://gis.stlouiscountymn.gov/server2/rest/services/GeneralUse/Cadastral/MapServer/23/query",
+        params: ARCGIS_PARAMS("PRCL_NBR"), kind: "arcgis" },
+      { name: "Sherburne County (parcels)", type: "Self-hosted ArcGIS",
+        url: "https://gis.co.sherburne.mn.us/arcgis/rest/services/OpenData/Parcels/FeatureServer/0/query",
+        params: ARCGIS_PARAMS("PIN"), kind: "arcgis" },
+      { name: "Anoka County (parcels)", type: "Self-hosted ArcGIS",
+        url: "https://gisservices.co.anoka.mn.us/anoka_gis/rest/services/Parcels/FeatureServer/0/query",
+        params: ARCGIS_PARAMS("PIN"), kind: "arcgis" },
+      { name: "Nominatim geocoder (proposed Census replacement)", type: "OpenStreetMap",
+        url: "https://nominatim.openstreetmap.org/search",
+        params: new URLSearchParams({
+          q: "4706 Mayer Ave NE St Michael MN 55376",
+          format: "jsonv2", limit: "1", countrycodes: "us",
+        }), kind: "nominatim" },
+      { name: "U.S. Census geocoder (current fallback)", type: "Census API",
+        url: "https://geocoding.geo.census.gov/geocoder/locations/onelineaddress",
+        params: new URLSearchParams({
+          address: "4706 Mayer Ave NE St Michael MN 55376",
+          benchmark: "Public_AR_Current", format: "json",
+        }), kind: "census" },
+    ];
+
+    const originEl = document.getElementById("origin");
+    originEl.textContent = window.location.origin || "(null — opened via file://)";
+    const rowsEl = document.getElementById("rows");
+    const summaryEl = document.getElementById("summary");
+    const runBtn = document.getElementById("run");
+
+    function makeRow(container, name, type, urlText) {
+      const tr = document.createElement("tr");
+      tr.innerHTML =
+        `<td>${name}<div class="url">${urlText}</div></td>` +
+        `<td>${type}</td>` +
+        `<td class="status pending">— not run —</td>` +
+        `<td class="detail"></td>`;
+      container.appendChild(tr);
+      return { status: tr.children[2], detail: tr.children[3] };
+    }
+
+    const rowRefs = tests.map((t) => makeRow(rowsEl, t.name, t.type, t.url));
+
+    function interpretData(test, data) {
+      if (test.kind === "arcgis") {
+        if (data && data.error) return `CORS OK; server returned ArcGIS error: ${data.error.message || JSON.stringify(data.error)}`;
+        const n = (data && data.features && data.features.length) || 0;
+        return `CORS OK; ${n} feature(s) read`;
+      }
+      if (test.kind === "nominatim") {
+        const n = Array.isArray(data) ? data.length : 0;
+        const first = n ? ` (lat ${data[0].lat}, lon ${data[0].lon})` : "";
+        return `CORS OK; ${n} geocode result(s)${first}`;
+      }
+      const matches = (data && data.result && data.result.addressMatches) || [];
+      return `CORS OK; ${matches.length} geocode match(es)`;
+    }
+
+    async function runData(test, ref) {
+      ref.status.textContent = "…running"; ref.status.className = "status pending"; ref.detail.textContent = "";
+      const url = `${test.url}?${test.params.toString()}`;
+      const t0 = performance.now();
+      try {
+        const res = await fetch(url, { method: "GET", mode: "cors" });
+        const ms = Math.round(performance.now() - t0);
+        let data = null, parseNote = "";
+        try { data = await res.json(); } catch { parseNote = " (body not JSON)"; }
+        ref.status.textContent = `✅ PASS (HTTP ${res.status})`; ref.status.className = "status ok";
+        ref.detail.innerHTML = `${interpretData(test, data || {})}${parseNote} <span class="ms">${ms} ms</span>`;
+        return true;
+      } catch (err) {
+        const ms = Math.round(performance.now() - t0);
+        ref.status.textContent = "❌ FAIL"; ref.status.className = "status fail";
+        ref.detail.innerHTML = `${err.name}: ${err.message} <span class="ms">${ms} ms</span><br><em>Console shows "blocked by CORS policy" = CORS; otherwise network.</em>`;
+        return false;
+      }
+    }
+
+    async function runAll() {
+      runBtn.disabled = true; summaryEl.textContent = "Running…"; summaryEl.className = "summary";
+      const results = await Promise.all(tests.map((t, i) => runData(t, rowRefs[i])));
+      const passed = results.filter(Boolean).length;
+      summaryEl.textContent = `${passed} / ${tests.length} passed`;
+      summaryEl.className = "summary " + (passed === tests.length ? "ok" : "fail");
+      runBtn.disabled = false;
+    }
+    runBtn.addEventListener("click", runAll);
+
+    // ---- LLM providers (optional, key-gated) ------------------------------
+    const llmRowsEl = document.getElementById("llm-rows");
+    const runLlmBtn = document.getElementById("run-llm");
+
+    const llmTests = [
+      { name: "OpenAI chat/completions", type: "OpenAI",
+        url: "https://api.openai.com/v1/chat/completions",
+        keyInput: "openai-key", model: "gpt-4o-mini",
+        headers: (key) => ({ "Authorization": `Bearer ${key}`, "Content-Type": "application/json" }) },
+      { name: "OpenRouter chat/completions", type: "OpenRouter",
+        url: "https://openrouter.ai/api/v1/chat/completions",
+        keyInput: "openrouter-key", model: "openai/gpt-4o-mini",
+        headers: (key) => ({ "Authorization": `Bearer ${key}`, "Content-Type": "application/json" }) },
+    ];
+    const llmRefs = llmTests.map((t) => makeRow(llmRowsEl, t.name, t.type, t.url));
+
+    async function runLlm(test, ref) {
+      const key = (document.getElementById(test.keyInput).value || "").trim();
+      if (!key) {
+        ref.status.textContent = "— skipped —"; ref.status.className = "status skip";
+        ref.detail.textContent = "No key entered.";
+        return null;
+      }
+      ref.status.textContent = "…running"; ref.status.className = "status pending"; ref.detail.textContent = "";
+      const body = JSON.stringify({ model: test.model, max_tokens: 1, messages: [{ role: "user", content: "ping" }] });
+      const t0 = performance.now();
+      try {
+        // This POST has Authorization + JSON content-type, so it triggers a CORS preflight (OPTIONS).
+        const res = await fetch(test.url, { method: "POST", mode: "cors", headers: test.headers(key), body });
+        const ms = Math.round(performance.now() - t0);
+        // Any HTTP status returned == CORS passed (incl. 401 from a bad key).
+        ref.status.textContent = `✅ PASS (HTTP ${res.status})`; ref.status.className = "status ok";
+        let note = "CORS OK";
+        if (res.status === 401 || res.status === 403) note = "CORS OK; auth rejected (expected with a throwaway key)";
+        else if (res.status >= 200 && res.status < 300) note = "CORS OK; request accepted";
+        else note = `CORS OK; HTTP ${res.status}`;
+        ref.detail.innerHTML = `${note} <span class="ms">${ms} ms</span>`;
+        return true;
+      } catch (err) {
+        const ms = Math.round(performance.now() - t0);
+        ref.status.textContent = "❌ FAIL"; ref.status.className = "status fail";
+        ref.detail.innerHTML = `${err.name}: ${err.message} <span class="ms">${ms} ms</span><br><em>fetch rejected → CORS preflight blocked or network error (see Console).</em>`;
+        return false;
+      }
+    }
+
+    async function runAllLlm() {
+      runLlmBtn.disabled = true;
+      await Promise.all(llmTests.map((t, i) => runLlm(t, llmRefs[i])));
+      runLlmBtn.disabled = false;
+    }
+    runLlmBtn.addEventListener("click", runAllLlm);
+
+    // Auto-run the keyless data endpoints on load (single tap for mobile).
+    window.addEventListener("load", () => { runAll(); });
+  </script>
+</body>
+</html>

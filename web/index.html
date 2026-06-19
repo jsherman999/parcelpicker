@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ParcelPicker - MN County Parcel Intelligence</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Sora:wght@600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+      crossorigin=""
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="panel controls">
+        <div class="brand-row">
+          <p class="kicker">Parcel Intelligence</p>
+          <span class="badge">IN-BROWSER</span>
+        </div>
+        <h1>ParcelPicker</h1>
+        <p id="subheading" class="subheading">MN County address -> owner -> adjacent parcel rings</p>
+
+        <div class="row-options">
+          <label for="county">County</label>
+          <select id="county">
+            <option value="wright">Wright County</option>
+            <option value="hennepin">Hennepin County</option>
+            <option value="stlouis">St. Louis County</option>
+            <option value="sherburne">Sherburne County</option>
+            <option value="anoka">Anoka County</option>
+          </select>
+        </div>
+
+        <label for="address">Property Address</label>
+        <input
+          id="address"
+          type="text"
+          placeholder="Example: 4706 Mayer Ave NE St Michael MN 55376"
+        />
+        <p class="hint">Best format: full street + city + state + ZIP for highest match rate.</p>
+
+        <div class="row-options">
+          <label for="rings">Rings</label>
+          <select id="rings">
+            <option value="0">0 (seed only)</option>
+            <option value="1">1 (touching parcels)</option>
+            <option value="2">2 (second ring)</option>
+          </select>
+        </div>
+
+        <label class="checkbox-row" for="use-llm">
+          <input id="use-llm" type="checkbox" disabled />
+          <span>Enable LLM owner normalization/summary</span>
+        </label>
+
+        <details id="llm-settings" class="llm-settings">
+          <summary>LLM Settings (optional)</summary>
+          <p class="hint">
+            Owner-name normalization &amp; run summaries via your own API key.
+            The key is stored only in this browser (localStorage) and sent only
+            to the provider you select. Use a scoped/limited key.
+          </p>
+          <label for="llm-provider">Provider</label>
+          <select id="llm-provider">
+            <option value="openai">OpenAI</option>
+            <option value="openrouter">OpenRouter</option>
+          </select>
+          <label for="llm-model">Model</label>
+          <input id="llm-model" type="text" placeholder="gpt-4o-mini" />
+          <label for="llm-key">API Key</label>
+          <input id="llm-key" type="password" autocomplete="off" placeholder="sk-..." />
+          <div class="lookup-row">
+            <button id="llm-save" type="button">Save</button>
+            <button id="llm-clear" type="button">Clear</button>
+          </div>
+          <p id="llm-status" class="hint"></p>
+        </details>
+
+        <div class="lookup-row">
+          <button id="lookup">Run Lookup</button>
+        </div>
+
+        <p id="status" class="status"></p>
+
+        <div id="run-meta" class="run-meta hidden">
+          <p><strong>Run:</strong> <span id="run-id"></span></p>
+          <p><strong>Status:</strong> <span id="run-status"></span></p>
+          <p><strong>Parcel Count:</strong> <span id="parcel-count"></span></p>
+          <p><strong>Owner Count:</strong> <span id="owner-count"></span></p>
+          <p><strong>Seed Parcel:</strong> <span id="seed-parcel"></span></p>
+          <p id="summary" class="summary"></p>
+
+          <div class="export-row">
+            <a id="csv-link" href="#" rel="noopener">Download CSV</a>
+            <a id="geojson-link" href="#" rel="noopener">Download GeoJSON</a>
+          </div>
+        </div>
+
+        <div id="history-panel" class="run-meta hidden">
+          <h2 class="history-title">Recent Runs</h2>
+          <ul id="history-list" class="history-list"></ul>
+        </div>
+      </section>
+
+      <section class="panel map-panel">
+        <div class="map-hint">Click any parcel on the map to run lookup from that location.</div>
+        <div id="map" aria-label="Parcel map"></div>
+      </section>
+
+      <section class="panel table-panel">
+        <div id="property-links" class="links-panel hidden">
+          <h2>Property Links</h2>
+          <p id="links-context" class="links-context"></p>
+          <p class="links-note">
+            Zillow may not have a public page for every parcel. Use Realtor or county links as fallback.
+          </p>
+          <div id="link-list" class="link-list"></div>
+        </div>
+
+        <h2>Run Parcels</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Ring</th>
+                <th>Parcel ID</th>
+                <th>Owner</th>
+                <th>Normalized Owner</th>
+                <th>Address</th>
+              </tr>
+            </thead>
+            <tbody id="results-body">
+              <tr>
+                <td colspan="5" class="empty">No results yet.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <script
+      src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+      integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+      crossorigin=""
+    ></script>
+    <script type="module" src="js/app.js"></script>
+  </body>
+</html>
