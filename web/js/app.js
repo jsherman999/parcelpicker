@@ -192,10 +192,72 @@ fetch("county_boundaries.geojson")
       if (id) countyBoundaries[id] = feat;
     }
     drawCountyBorder();
+    detectCounty();
   })
   .catch((err) => {
     console.warn("county boundaries load failed:", err);
   });
+
+// Pre-select the county the user is physically in (falls back to the default,
+// St. Louis, if geolocation is unavailable, denied, or outside all counties).
+function ringContains(lon, lat, ring) {
+  let inside = false;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i, i += 1) {
+    const xi = ring[i][0];
+    const yi = ring[i][1];
+    const xj = ring[j][0];
+    const yj = ring[j][1];
+    if (
+      yi > lat !== yj > lat &&
+      lon < ((xj - xi) * (lat - yi)) / ((yj - yi) || 1e-12) + xi
+    ) {
+      inside = !inside;
+    }
+  }
+  return inside;
+}
+
+function polygonContains(lon, lat, rings) {
+  if (!rings || !rings.length || !ringContains(lon, lat, rings[0])) return false;
+  for (let i = 1; i < rings.length; i += 1) {
+    if (ringContains(lon, lat, rings[i])) return false; // inside a hole
+  }
+  return true;
+}
+
+function countyForPoint(lon, lat) {
+  for (const id of Object.keys(countyConfig)) {
+    const feat = countyBoundaries[id];
+    const geom = feat && feat.geometry;
+    if (!geom) continue;
+    if (geom.type === "Polygon" && polygonContains(lon, lat, geom.coordinates)) return id;
+    if (
+      geom.type === "MultiPolygon" &&
+      geom.coordinates.some((poly) => polygonContains(lon, lat, poly))
+    ) {
+      return id;
+    }
+  }
+  return null;
+}
+
+function detectCounty() {
+  if (!navigator.geolocation) return;
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      const match = countyForPoint(pos.coords.longitude, pos.coords.latitude);
+      if (match && match !== getCounty()) {
+        countySelect.value = match;
+        applyCounty();
+        setStatus(`Detected ${getCountyConfig().label} from your location.`);
+      }
+    },
+    () => {
+      // denied / unavailable / timed out — keep the St. Louis default
+    },
+    { enableHighAccuracy: false, timeout: 8000, maximumAge: 600000 }
+  );
+}
 
 function setStatus(text, isError = false) {
   statusEl.textContent = text;
@@ -531,6 +593,8 @@ function initLlmSettings() {
     llmStatusEl.textContent = `Configured: ${cfg.provider} / ${cfg.model}.`;
   }
   refreshLlmAvailability();
+  // Default the LLM toggle on at load when a key is configured.
+  if (llm.isAvailable) useLlmInput.checked = true;
 }
 
 llmSaveBtn.addEventListener("click", () => {
