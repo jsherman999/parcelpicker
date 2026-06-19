@@ -4,6 +4,18 @@
 import { sleep, fetchWithTimeout } from "../util.js";
 import { geocodeAddress } from "../geocode.js";
 
+// Common US street-type and directional tokens, used to isolate the street
+// line (house number + street) from a full "street, city, state zip" input.
+const STREET_TYPES = new Set([
+  "AVE", "AVENUE", "ST", "STREET", "RD", "ROAD", "LN", "LANE", "DR", "DRIVE",
+  "BLVD", "BOULEVARD", "CT", "COURT", "CIR", "CIRCLE", "TRL", "TRAIL", "WAY",
+  "PL", "PLACE", "PKWY", "PARKWAY", "HWY", "HIGHWAY", "TER", "TERRACE", "LOOP",
+  "PATH", "PT", "POINT", "RUN", "PASS", "CV", "COVE", "XING", "CROSSING",
+  "SQ", "SQUARE", "ALY", "ALLEY", "ROW", "BND", "BEND", "CRES", "CRESCENT",
+]);
+
+const DIRECTIONALS = new Set(["N", "S", "E", "W", "NE", "NW", "SE", "SW"]);
+
 export class BaseParcelProvider {
   // Subclasses override these class fields.
   endpointUrl = "";
@@ -101,30 +113,34 @@ export class BaseParcelProvider {
   // ---- query helpers (overridable) --------------------------------------
 
   async _queryByAddress(cleaned, budget) {
-    const exactWhere = this._getAddressWhereExact(cleaned);
-    let features = await this._queryCounty(
-      {
-        where: exactWhere,
-        outFields: this._getOutfields(),
-        returnGeometry: "true",
-        outSR: "4326",
-      },
-      budget
-    );
-    let feature = this._firstFeatureWithPid(features);
-    if (feature) return feature;
+    // Try the full input first, then a street-only variant. County address
+    // fields often hold just the street line (e.g. Wright PHYSADDR = "4706
+    // MAYER AVE NE"), so a full "street, city, state zip" input won't match
+    // until we strip the city/state/zip. This keeps address matching working
+    // without depending on the (sometimes inaccurate) geocoder.
+    const candidates = [cleaned];
+    const street = this._extractStreetLine(cleaned);
+    if (street && street !== cleaned) candidates.push(street);
 
-    const containsWhere = this._getAddressWhereContains(cleaned);
-    features = await this._queryCounty(
-      {
-        where: containsWhere,
-        outFields: this._getOutfields(),
-        returnGeometry: "true",
-        outSR: "4326",
-      },
-      budget
-    );
-    return this._firstFeatureWithPid(features);
+    for (const candidate of candidates) {
+      for (const where of [
+        this._getAddressWhereExact(candidate),
+        this._getAddressWhereContains(candidate),
+      ]) {
+        const features = await this._queryCounty(
+          {
+            where,
+            outFields: this._getOutfields(),
+            returnGeometry: "true",
+            outSR: "4326",
+          },
+          budget
+        );
+        const feature = this._firstFeatureWithPid(features);
+        if (feature) return feature;
+      }
+    }
+    return null;
   }
 
   async _queryByPoint(lon, lat, budget) {
@@ -255,6 +271,36 @@ export class BaseParcelProvider {
 
   _normalizeAddress(address) {
     return String(address || "").trim().toUpperCase().split(/\s+/).join(" ");
+  }
+
+  // Extract just the street line from a full address, e.g.
+  // "4706 MAYER AVE NE ST MICHAEL, MN 55376" -> "4706 MAYER AVE NE".
+  // Heuristic: drop trailing state+zip, require a leading house number, then
+  // cut at the first street-type token (+ optional trailing directional).
+  _extractStreetLine(cleaned) {
+    let s = String(cleaned || "")
+      .replace(/,/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+    s = s.replace(/\s+MN(\s+\d{5}(?:-\d{4})?)?$/i, "").trim();
+
+    const tokens = s.split(" ").filter(Boolean);
+    if (!tokens.length || !/^\d/.test(tokens[0])) return null;
+
+    let cut = -1;
+    for (let i = 1; i < tokens.length; i += 1) {
+      if (STREET_TYPES.has(tokens[i])) {
+        cut = i;
+        break;
+      }
+    }
+    if (cut === -1) return null;
+
+    let end = cut;
+    if (end + 1 < tokens.length && DIRECTIONALS.has(tokens[end + 1])) {
+      end = cut + 1;
+    }
+    return tokens.slice(0, end + 1).join(" ");
   }
 
   _sqlEscape(value) {
