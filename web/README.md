@@ -4,6 +4,11 @@ A no-server, static version of ParcelPicker. All lookup orchestration, ring
 expansion, and exports run in the browser by calling the county ArcGIS endpoints
 and a geocoder directly (CORS-verified — see `../cors-test.html`).
 
+**🌐 Live app: https://jsherman999.github.io/parcelpicker/**
+
+Served via GitHub Pages from this `web/` folder (see `../.github/workflows/pages.yml`);
+every push to `main` that changes `web/` auto-deploys.
+
 ## Status
 
 This is **Phase 1** of the port described in `../docs/in-browser-port-plan.md`:
