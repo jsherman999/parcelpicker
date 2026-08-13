@@ -83,6 +83,60 @@ export class ParcelLookupRunner {
     });
   }
 
+  // Resolve a single parcel at a point without expanding rings. Returns a
+  // parcel-shaped object (ring 0, seed) so the UI can accumulate map clicks
+  // without triggering any neighbor lookup.
+  async lookupSeedByPoint({ lat, lon }) {
+    let record = null;
+    if (this._store) {
+      try {
+        record = await this._resolveSeedFromLocalCache(lon, lat);
+      } catch (err) {
+        console.warn("local cache seed lookup failed:", err);
+      }
+    }
+    if (!record || !record.parcel_id) {
+      record = await this._service.lookupByPoint({
+        lon,
+        lat,
+        budget: new RequestBudget(this._settings.maxRequests),
+      });
+    }
+    if (!record || !record.parcel_id) return null;
+    return {
+      parcel_id: record.parcel_id,
+      owner_name: record.owner_name || "",
+      normalized_owner_name: this._normalizeOwner(record.owner_name),
+      site_address: record.site_address || "",
+      geometry: record.geometry,
+      source: record.source || this._provider,
+      matched_by: record.matched_by || "map_click_intersect",
+      ring_number: 0,
+      is_seed: true,
+    };
+  }
+
+  // Expand rings from an already-resolved seed parcel (explicit user action).
+  async runLookupFromSeed({ seedParcel, rings, useLlm = false }) {
+    await this._cleanup();
+    const inputLabel = `PARCEL(${seedParcel.parcel_id || ""})`;
+    if (this._store && seedParcel.parcel_id) {
+      const cached = await this._safeRecentRun(seedParcel.parcel_id, rings);
+      if (cached) {
+        return this._buildCachedRunResponse(cached, rings, inputLabel, seedParcel.parcel_id);
+      }
+    }
+    return this._runCore({
+      inputLabel,
+      rings,
+      useLlm,
+      notFoundError: "No parcel found for this seed.",
+      inputAlias: null,
+      seedResolver: () => Promise.resolve(seedParcel),
+      preResolvedSeed: seedParcel,
+    });
+  }
+
   async _runCore({
     inputLabel,
     rings,

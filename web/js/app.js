@@ -120,6 +120,8 @@ const resultsBody = document.getElementById("results-body");
 const propertyLinksEl = document.getElementById("property-links");
 const linksContextEl = document.getElementById("links-context");
 const linkListEl = document.getElementById("link-list");
+const expandNeighborsBtn = document.getElementById("expand-neighbors");
+const clearSelectionBtn = document.getElementById("clear-selection");
 
 const ringColors = { 0: "#1a6f4b", 1: "#2d4f9a", 2: "#b76a22" };
 
@@ -135,6 +137,8 @@ let layers = [];
 let countyBoundaries = {};
 let currentBorderLayer = null;
 let currentRun = null;
+let sessionParcels = new Map(); // parcel_id -> parcel (accumulated map selection)
+let selectedParcelId = null; // most recently inspected parcel
 
 // One runner per county, created on demand (each wraps its own provider).
 const runners = {};
@@ -179,6 +183,7 @@ function applyCounty() {
   addressInput.placeholder = cfg.placeholder;
   map.setView(cfg.center, cfg.zoom);
   drawCountyBorder();
+  resetSession();
 }
 
 countySelect.addEventListener("change", applyCounty);
@@ -267,6 +272,7 @@ function setStatus(text, isError = false) {
 function setBusy(isBusy) {
   lookupButton.disabled = isBusy;
   lookupButton.textContent = isBusy ? "Running..." : "Run Lookup";
+  if (expandNeighborsBtn) expandNeighborsBtn.disabled = isBusy || !selectedParcelId;
 }
 
 function clearMap() {
@@ -274,21 +280,22 @@ function clearMap() {
   layers = [];
 }
 
-function renderParcels(parcels) {
+function renderParcels(parcels, highlightId = null) {
   clearMap();
   const bounds = L.latLngBounds([]);
 
   for (const parcel of parcels) {
     if (!parcel.geometry) continue;
 
+    const isHighlight = highlightId != null && parcel.parcel_id === highlightId;
     const color = ringColors[parcel.ring_number] || "#6c6c6c";
     const layer = L.geoJSON(parcel.geometry, {
       bubblingMouseEvents: false,
       style: {
         color,
-        weight: parcel.is_seed ? 3 : 2,
+        weight: isHighlight || parcel.is_seed ? 3 : 2,
         fillColor: color,
-        fillOpacity: parcel.is_seed ? 0.35 : 0.2,
+        fillOpacity: isHighlight ? 0.4 : parcel.is_seed ? 0.3 : 0.2,
       },
     }).addTo(map);
 
@@ -311,7 +318,7 @@ function renderTable(parcels) {
 
   if (!parcels.length) {
     resultsBody.innerHTML =
-      '<tr><td colspan="5" class="empty">No parcel rows for this run.</td></tr>';
+      '<tr><td colspan="5" class="empty">No parcels to display.</td></tr>';
     return;
   }
 
@@ -328,14 +335,15 @@ function renderTable(parcels) {
   }
 }
 
-function buildPropertyLinks(run, seedParcel) {
+function buildPropertyLinks(seedParcel, inputAddress = "") {
   const cfg = getCountyConfig();
   const parcelId = seedParcel?.parcel_id || "";
   const siteAddress = seedParcel?.site_address || "";
-  const inputAddress = (run.input_address || "").startsWith("POINT(")
+  const safeInput = String(inputAddress || "");
+  const cleanInput = safeInput.startsWith("POINT(") || safeInput.startsWith("PARCEL(")
     ? ""
-    : run.input_address || "";
-  const query = (inputAddress || siteAddress || parcelId).trim();
+    : safeInput;
+  const query = (cleanInput || siteAddress || parcelId).trim();
   if (!query) return [];
 
   const zillowQuery = `${query} ${cfg.zillowSuffix}`;
@@ -379,19 +387,29 @@ function buildPropertyLinks(run, seedParcel) {
 function renderPropertyLinks(run) {
   const seedParcel = (run.parcels || []).find((parcel) => parcel.is_seed);
   if (!seedParcel) {
-    propertyLinksEl.classList.add("hidden");
-    linkListEl.innerHTML = "";
-    linksContextEl.textContent = "";
+    hidePropertyLinks();
     return;
   }
+  renderPropertyLinksForParcel(seedParcel, run.input_address);
+}
 
-  const displayAddress = seedParcel.site_address || run.input_address || "(unknown)";
-  linksContextEl.textContent = `${displayAddress} • Parcel ${seedParcel.parcel_id || "(n/a)"}`;
+function hidePropertyLinks() {
+  propertyLinksEl.classList.add("hidden");
+  linkListEl.innerHTML = "";
+  linksContextEl.textContent = "";
+}
 
-  const links = buildPropertyLinks(run, seedParcel);
+function renderPropertyLinksForParcel(parcel, inputAddress = "") {
+  if (!parcel) {
+    hidePropertyLinks();
+    return;
+  }
+  const displayAddress = parcel.site_address || inputAddress || "(unknown)";
+  linksContextEl.textContent = `${displayAddress} • Parcel ${parcel.parcel_id || "(n/a)"}`;
+
+  const links = buildPropertyLinks(parcel, inputAddress);
   if (!links.length) {
-    propertyLinksEl.classList.add("hidden");
-    linkListEl.innerHTML = "";
+    hidePropertyLinks();
     return;
   }
 
@@ -423,6 +441,30 @@ function renderRun(run) {
   renderPropertyLinks(run);
   renderParcels(run.parcels || []);
   renderTable(run.parcels || []);
+}
+
+function renderSession() {
+  const parcels = [...sessionParcels.values()];
+  const selected = selectedParcelId ? sessionParcels.get(selectedParcelId) : null;
+
+  runMetaEl.classList.add("hidden");
+  renderParcels(parcels, selectedParcelId);
+  renderTable(parcels);
+  if (selected) {
+    renderPropertyLinksForParcel(selected, "");
+  } else {
+    hidePropertyLinks();
+  }
+  if (expandNeighborsBtn) expandNeighborsBtn.disabled = !selected;
+}
+
+function resetSession() {
+  sessionParcels.clear();
+  selectedParcelId = null;
+  clearMap();
+  renderTable([]);
+  hidePropertyLinks();
+  if (expandNeighborsBtn) expandNeighborsBtn.disabled = true;
 }
 
 csvLink.addEventListener("click", (event) => {
@@ -471,7 +513,11 @@ async function refreshHistory() {
     const li = document.createElement("li");
     li.className = "history-item";
 
-    const label = run.input_address.startsWith("POINT(") ? "map click" : run.input_address;
+    const label = run.input_address.startsWith("POINT(")
+      ? "map click"
+      : run.input_address.startsWith("PARCEL(")
+        ? "expand neighbors"
+        : run.input_address;
     const button = document.createElement("button");
     button.type = "button";
     button.className = "history-link";
@@ -543,22 +589,67 @@ async function runLookupByPoint(lat, lon) {
   if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
 
   setBusy(true);
-  setStatus(`Running lookup at ${lat.toFixed(5)}, ${lon.toFixed(5)}...`);
+  setStatus(`Looking up parcel at ${lat.toFixed(5)}, ${lon.toFixed(5)}...`);
 
   try {
-    const run = await getRunner().runLookupFromPoint({
-      lat,
-      lon,
-      rings: Number(ringsInput.value),
-      useLlm: Boolean(useLlmInput.checked),
-    });
-    handleRunResult(run);
+    const parcel = await getRunner().lookupSeedByPoint({ lat, lon });
+    if (!parcel || !parcel.parcel_id) {
+      setStatus("No parcel found at clicked location.", true);
+      return;
+    }
+    sessionParcels.set(parcel.parcel_id, parcel);
+    selectedParcelId = parcel.parcel_id;
+    renderSession();
+    setStatus(
+      `Selected parcel ${parcel.parcel_id} — ${parcel.owner_name || "owner unknown"}. ` +
+        "Click another parcel to inspect it, or use Expand Neighbors."
+    );
   } catch (error) {
-    handleRunError(error);
+    setStatus(error.message || "Lookup failed.", true);
   } finally {
     setBusy(false);
   }
 }
+
+async function expandSelected() {
+  const seed = selectedParcelId ? sessionParcels.get(selectedParcelId) : null;
+  if (!seed) {
+    setStatus("Click a parcel first, then expand its neighbors.", true);
+    return;
+  }
+  const rings = Number(ringsInput.value);
+  setBusy(true);
+  setStatus(`Expanding neighbors around ${seed.parcel_id} (rings ${rings})...`);
+
+  try {
+    const run = await getRunner().runLookupFromSeed({
+      seedParcel: seed,
+      rings,
+      useLlm: Boolean(useLlmInput.checked),
+    });
+    if (run.status === "failed" || run.status === "not_found") {
+      throw new Error(run.error || "Expansion failed.");
+    }
+    for (const parcel of run.parcels || []) {
+      sessionParcels.set(parcel.parcel_id, { ...parcel });
+    }
+    renderSession();
+    setStatus(`Expanded ${seed.parcel_id}: ${run.parcel_count} parcels across rings 0-${rings}.`);
+    refreshHistory();
+  } catch (error) {
+    setStatus(error.message || "Expansion failed.", true);
+  } finally {
+    setBusy(false);
+  }
+}
+
+function clearSelection() {
+  resetSession();
+  setStatus("Map selection cleared. Click any parcel to inspect it.");
+}
+
+if (expandNeighborsBtn) expandNeighborsBtn.addEventListener("click", expandSelected);
+if (clearSelectionBtn) clearSelectionBtn.addEventListener("click", clearSelection);
 
 lookupButton.addEventListener("click", runLookup);
 addressInput.addEventListener("keydown", (event) => {
