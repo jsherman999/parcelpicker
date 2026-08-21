@@ -357,6 +357,101 @@ function clearMap() {
   layers = [];
 }
 
+// ---- Owner labels on the map --------------------------------------------
+
+// Escape untrusted text (county-supplied owner names) before HTML insertion.
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
+// Absolute shoelace area for a GeoJSON ring of [lon, lat] pairs.
+function ringArea(ring) {
+  let area = 0;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i += 1) {
+    area += ring[j][0] * ring[i][1] - ring[i][0] * ring[j][1];
+  }
+  return Math.abs(area / 2);
+}
+
+// Shoelace centroid for a GeoJSON ring; falls back to the mean vertex for
+// degenerate (zero-area) rings.
+function ringCentroid(ring) {
+  let area = 0;
+  let cx = 0;
+  let cy = 0;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i += 1) {
+    const x0 = ring[j][0];
+    const y0 = ring[j][1];
+    const x1 = ring[i][0];
+    const y1 = ring[i][1];
+    const f = x0 * y1 - x1 * y0;
+    area += f;
+    cx += (x0 + x1) * f;
+    cy += (y0 + y1) * f;
+  }
+  area /= 2;
+  if (Math.abs(area) < 1e-12) {
+    return [
+      ring.reduce((sum, pt) => sum + pt[0], 0) / ring.length,
+      ring.reduce((sum, pt) => sum + pt[1], 0) / ring.length,
+    ];
+  }
+  return [cx / (6 * area), cy / (6 * area)];
+}
+
+// Label point for a GeoJSON geometry: centroid of the largest polygon so
+// MultiPolygons (and donut-shaped rings) don't land in a hole.
+function geometryLabelPoint(geometry) {
+  if (!geometry || !Array.isArray(geometry.coordinates)) {
+    return null;
+  }
+  const polygons =
+    geometry.type === "MultiPolygon"
+      ? geometry.coordinates
+      : [geometry.coordinates];
+  let bestRing = null;
+  let bestArea = -1;
+  for (const poly of polygons) {
+    const outer = poly && poly[0];
+    if (!outer || outer.length < 3) {
+      continue;
+    }
+    const area = ringArea(outer);
+    if (area > bestArea) {
+      bestArea = area;
+      bestRing = outer;
+    }
+  }
+  return bestRing ? ringCentroid(bestRing) : null;
+}
+
+// Permanent, non-interactive owner label centered on the parcel.
+function addOwnerLabel(parcel) {
+  const point = geometryLabelPoint(parcel.geometry);
+  if (!point) {
+    return null;
+  }
+  const name = parcel.owner_name || parcel.normalized_owner_name || "(unknown)";
+  // L.marker expects [lat, lng]; the centroid is [lon, lat].
+  const marker = L.marker([point[1], point[0]], {
+    icon: L.divIcon({
+      className: "owner-label",
+      html: `<span class="owner-label-text${parcel.is_seed ? " seed" : ""}">${escapeHtml(
+        name
+      )}</span>`,
+    }),
+    interactive: false,
+    keyboard: false,
+    zIndexOffset: parcel.is_seed ? 1000 : 0,
+  }).addTo(map);
+  return marker;
+}
+
 function renderParcels(parcels) {
   clearMap();
   const bounds = L.latLngBounds([]);
@@ -384,6 +479,10 @@ function renderParcels(parcels) {
     );
 
     layers.push(layer);
+    const label = addOwnerLabel(parcel);
+    if (label) {
+      layers.push(label);
+    }
     const layerBounds = layer.getBounds();
     if (layerBounds.isValid()) {
       bounds.extend(layerBounds);

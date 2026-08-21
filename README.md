@@ -213,6 +213,8 @@ Download the run as GeoJSON FeatureCollection.
 
 ## Behavior Notes
 
+- The web UI labels every rendered parcel on the map with its owner name (permanent,
+  non-interactive label centered on the parcel; long names truncate, seed parcel highlighted).
 - Ring expansion uses `Touches` spatial relation against the current ring geometry set.
 - The web UI also supports map-click seeded lookups (uses `/api/lookup/point`).
 - After a successful map-click lookup, the seed parcel address is auto-populated into the Property Address field.

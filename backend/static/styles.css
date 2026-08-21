@@ -365,6 +365,39 @@ tbody tr:hover {
   border-color: rgba(109, 161, 228, 0.36);
 }
 
+/* Permanent owner labels centered on each parcel */
+.owner-label {
+  pointer-events: none;
+  background: transparent;
+  border: none;
+}
+
+.owner-label-text {
+  display: inline-block;
+  transform: translate(-50%, -50%);
+  max-width: 170px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: center;
+  font-family: "Manrope", "Avenir Next", "Segoe UI", sans-serif;
+  font-size: 10.5px;
+  font-weight: 700;
+  line-height: 1.4;
+  color: #123a2b;
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(18, 58, 43, 0.35);
+  border-radius: 5px;
+  padding: 0 5px;
+  box-shadow: 0 1px 3px rgba(6, 8, 15, 0.35);
+}
+
+.owner-label-text.seed {
+  background: rgba(20, 84, 60, 0.92);
+  border-color: rgba(20, 84, 60, 0.9);
+  color: #eafff6;
+}
+
 @keyframes rise-in {
   from {
     opacity: 0;

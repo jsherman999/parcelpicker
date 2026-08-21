@@ -33,7 +33,7 @@ STATIC_DIR = ROOT_DIR / "backend" / "static"
 DEFAULT_DB_PATH = ROOT_DIR / "data" / "app.db"
 
 
-app = FastAPI(title="ParcelPicker", version="0.8.0")
+app = FastAPI(title="ParcelPicker", version="0.8.1")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],

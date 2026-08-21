@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.8.1] - 2026-08-21
+
+### Added
+- Owner name shown directly on the map: each rendered parcel now carries a
+  permanent, non-interactive label centered on its polygon (shoelace centroid,
+  largest-polygon for MultiPolygons). Long names truncate with an ellipsis;
+  the seed parcel label is highlighted. Owner names are HTML-escaped before
+  rendering. Applies to both the in-browser build (`web/`) and the backend
+  reference UI (`backend/static/`).
+
 ## [0.8.0] - 2026-08-21
 
 ### Added

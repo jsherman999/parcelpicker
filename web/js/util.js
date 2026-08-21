@@ -2,6 +2,17 @@
 
 export const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+// Escape untrusted text (county-supplied owner names, parcel IDs) before
+// interpolating it into HTML.
+export function escapeHtml(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
 // fetch() with an AbortController-based timeout so a hung request can't stall a run.
 export async function fetchWithTimeout(url, options = {}, timeoutMs = 20000) {
   const controller = new AbortController();
