@@ -2,6 +2,8 @@
 
 ParcelPicker is a local-first web app for parcel intelligence. It runs on your Mac and exposes a LAN-accessible web interface.
 
+**Live app:** [jsherman999.github.io/parcelpicker](https://jsherman999.github.io/parcelpicker/)
+
 > **New: all-in-browser build.** A no-server static version lives in [`web/`](web/).
 > It runs entirely in the browser — calling the county ArcGIS endpoints and a
 > geocoder directly (CORS-verified via [`cors-test.html`](cors-test.html)) — with
