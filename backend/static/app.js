@@ -75,6 +75,171 @@ const countyConfig = {
     arcgisJsonIdField: "PIN",
     zillowSuffix: "Anoka County MN",
   },
+  ramsey: {
+    label: "Ramsey County",
+    center: [45.02, -93.05],
+    zoom: 10,
+    placeholder: "Example: 2715 Upper Afton Rd E Maplewood MN 55119",
+    propertySearch: {
+      label: "Ramsey Open Data",
+      href: "https://opendata.ramseycountymn.gov/",
+    },
+    arcgisJsonBase:
+      "https://maps.co.ramsey.mn.us/arcgis/rest/services/OpenData/OpenData/MapServer/12/query",
+    arcgisJsonFields: "ParcelID,OwnerName,SiteAddress,SiteCityName,SiteZIP5",
+    arcgisJsonIdField: "ParcelID",
+    zillowSuffix: "Ramsey County MN",
+  },
+  olmsted: {
+    label: "Olmsted County",
+    center: [44.02, -92.95],
+    zoom: 10,
+    placeholder: "Example: 6126 19th St SE Rochester MN 55068",
+    propertySearch: {
+      label: "Olmsted County GIS Map",
+      href: "https://gweb01.co.olmsted.mn.us/WebApps/OlmstedCountyGISMap/",
+    },
+    arcgisJsonBase:
+      "https://public.gis.olmstedcounty.gov/arcgis/rest/services/Parcels_Addressing/MapServer/3/query",
+    arcgisJsonFields: "PIN,OwnerName1,SiteAddrNo,SiteStName,SiteCity,SiteZip5",
+    arcgisJsonIdField: "PIN",
+    zillowSuffix: "Olmsted County MN",
+  },
+  chisago: {
+    label: "Chisago County",
+    center: [45.6, -93.02],
+    zoom: 10,
+    placeholder: "Example: 16823 River Rd North Branch MN 55056",
+    propertySearch: {
+      label: "Chisago Parcel Viewer",
+      href: "https://gis.chisagocountymn.gov/Link/WAB/",
+    },
+    arcgisJsonBase:
+      "https://gis.chisagocounty.us/arcgis/rest/services/AssessmentInformation/TaxParcels/MapServer/0/query",
+    arcgisJsonFields: "PIN,Ownname,PropAddr,PropCity,PropZip",
+    arcgisJsonIdField: "PIN",
+    zillowSuffix: "Chisago County MN",
+  },
+  morrison: {
+    label: "Morrison County",
+    center: [46.05, -94.65],
+    zoom: 10,
+    placeholder: "Example: 30281 Nature Rd Royalton MN 56373",
+    propertySearch: {
+      label: "Morrison County Assessor",
+      href: "https://morrisoncountymn.gov/government/assessor/",
+    },
+    arcgisJsonBase:
+      "https://services1.arcgis.com/lQjrBHFnTgKBR9zX/arcgis/rest/services/Parcels/FeatureServer/0/query",
+    arcgisJsonFields: "PIN,Primary_Owner,Situs_Freeform_Addr,SitusCity,SitusZip",
+    arcgisJsonIdField: "PIN",
+    zillowSuffix: "Morrison County MN",
+  },
+  scott: {
+    label: "Scott County",
+    center: [44.6, -93.78],
+    zoom: 10,
+    placeholder: "Example: 72 Cedar Lake Ct New Prague MN 56071",
+    propertySearch: {
+      label: "Scott County Open Data",
+      href: "https://open-data-scottcounty.hub.arcgis.com/datasets/parcels/explore",
+    },
+    arcgisJsonBase:
+      "https://services.arcgis.com/DqIh9WAsIZcPlBEF/arcgis/rest/services/Parcels/FeatureServer/0/query",
+    arcgisJsonFields: "PID,TaxPayerName,PropertyAddress1,PropertyCity,PropertyZip",
+    arcgisJsonIdField: "PID",
+    zillowSuffix: "Scott County MN",
+  },
+  aitkin: {
+    label: "Aitkin County",
+    center: [46.72, -93.37],
+    zoom: 10,
+    placeholder: "Example: 230 S Maddy St McGregor MN 55760",
+    propertySearch: {
+      label: "Aitkin County GIS",
+      href: "https://gisweb.co.aitkin.mn.us/",
+    },
+    arcgisJsonBase:
+      "https://gisweb.co.aitkin.mn.us/arcgis/rest/services/ParcelTaxData/FeatureServer/0/query",
+    arcgisJsonFields: "PRCL_NBR,OWNNAME,ADDR_1,ADDR_2",
+    arcgisJsonIdField: "PRCL_NBR",
+    zillowSuffix: "Aitkin County MN",
+  },
+  koochiching: {
+    label: "Koochiching County",
+    center: [48.47, -94.47],
+    zoom: 10,
+    placeholder: "Example: 12005 Town Road 129 Baudette MN 56623",
+    propertySearch: {
+      label: "Koochiching County",
+      href: "https://koochichingcounty.gov/",
+    },
+    arcgisJsonBase:
+      "https://services3.arcgis.com/8mdusDCY0WncdJVw/arcgis/rest/services/KoochichingCountyParcelDataPublish/FeatureServer/0/query",
+    arcgisJsonFields: "PARCEL_ID,OWNNAME,ADDR_1,CITY,ZIP_CODE_5",
+    arcgisJsonIdField: "PARCEL_ID",
+    zillowSuffix: "Koochiching County MN",
+  },
+  beltrami: {
+    label: "Beltrami County",
+    center: [47.85, -95.65],
+    zoom: 10,
+    placeholder: "Example: 8644 Lumberjack Rd NW Puposky MN 56667",
+    propertySearch: {
+      label: "Beltrami County Assessor",
+      href: "https://beltramicounty.org/assessor/",
+    },
+    arcgisJsonBase:
+      "https://arcgis.co.beltrami.mn.us/arcgis/rest/services/BeltramiData/BeltramiOpenData/MapServer/2/query",
+    arcgisJsonFields: "PIN,OWNERNAME1,OWNERNAME2,PROP_ADD1,PROP_CITY,PROP_ZIP",
+    arcgisJsonIdField: "PIN",
+    zillowSuffix: "Beltrami County MN",
+  },
+  dakota: {
+    label: "Dakota County",
+    center: [44.78, -93.28],
+    zoom: 10,
+    placeholder: "Example: 4955 Diamond Path Apple Valley MN 55124",
+    propertySearch: {
+      label: "Dakota County GIS",
+      href: "https://gis.co.dakota.mn.us/dcgis/",
+    },
+    arcgisJsonBase:
+      "https://arcgis.metc.state.mn.us/data1/rest/services/parcels/Parcels/FeatureServer/2/query",
+    arcgisJsonFields: "PIN,OWNER_NAME,ANUMBER,ST_NAME,ST_POS_TYP,CTU_NAME,ZIP",
+    arcgisJsonIdField: "PIN",
+    zillowSuffix: "Dakota County MN",
+  },
+  washington: {
+    label: "Washington County",
+    center: [45.33, -93.1],
+    zoom: 10,
+    placeholder: "Example: 12001 120th St NE Bayport MN 55003",
+    propertySearch: {
+      label: "Washington County GIS",
+      href: "https://washingtoncountymn.gov/government/departments-a-z/g/gis",
+    },
+    arcgisJsonBase:
+      "https://arcgis.metc.state.mn.us/data1/rest/services/parcels/Parcels/FeatureServer/6/query",
+    arcgisJsonFields: "PIN,OWNER_NAME,ANUMBER,ST_NAME,ST_POS_TYP,CTU_NAME,ZIP",
+    arcgisJsonIdField: "PIN",
+    zillowSuffix: "Washington County MN",
+  },
+  carver: {
+    label: "Carver County",
+    center: [44.82, -93.85],
+    zoom: 10,
+    placeholder: "Example: 13075 166th St Chanhassen MN 55317",
+    propertySearch: {
+      label: "Carver County Property Search",
+      href: "https://gis.carvercountymn.gov/property/",
+    },
+    arcgisJsonBase:
+      "https://arcgis.metc.state.mn.us/data1/rest/services/parcels/Parcels/FeatureServer/1/query",
+    arcgisJsonFields: "PIN,TAX_NAME,ANUMBER,ST_NAME,CTU_NAME,ZIP",
+    arcgisJsonIdField: "PIN",
+    zillowSuffix: "Carver County MN",
+  },
 };
 
 const countySelect = document.getElementById("county");

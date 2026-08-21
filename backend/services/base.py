@@ -11,6 +11,44 @@ import httpx
 
 CENSUS_GEOCODE_URL = "https://geocoding.geo.census.gov/geocoder/locations/onelineaddress"
 
+# Common US street-type and directional tokens, used to bound a street prefix
+# extracted from a full "street, city, state zip" input (mirrors the sets in
+# web/js/providers/base.js).
+STREET_TYPE_TOKENS = frozenset({
+    "AVE", "AVENUE", "ST", "STREET", "RD", "ROAD", "LN", "LANE", "DR", "DRIVE",
+    "BLVD", "BOULEVARD", "CT", "COURT", "CIR", "CIRCLE", "TRL", "TRAIL", "WAY",
+    "PL", "PLACE", "PKWY", "PARKWAY", "HWY", "HIGHWAY", "TER", "TERRACE",
+    "LOOP", "PATH", "PT", "POINT", "RUN", "PASS", "CV", "COVE", "XING",
+    "CROSSING", "SQ", "SQUARE", "ALY", "ALLEY", "ROW", "BND", "BEND", "CRES",
+    "CRESCENT",
+})
+
+DIRECTIONAL_TOKENS = frozenset({"N", "S", "E", "W", "NE", "NW", "SE", "SW"})
+
+
+def street_prefix(address: str) -> str | None:
+    """House number + street name (+ type + directional), cut at the first
+    street-type token so a trailing city token is excluded.
+
+    "30281 NATURE RD ROYALTON" -> "30281 NATURE RD"
+    Falls back to the first 4 tokens when no street-type token is present
+    ("12005 TOWN ROAD 129 BAUDETTE" -> "12005 TOWN ROAD 129").
+    """
+    tokens = str(address or "").split()
+    if not tokens or not tokens[0].isdigit():
+        return None
+    for i in range(1, len(tokens)):
+        if tokens[i].upper() in STREET_TYPE_TOKENS:
+            # A numeric token right after the type means it is part of the
+            # street name ("TOWN ROAD 129"), not a boundary.
+            if i + 1 < len(tokens) and tokens[i + 1].isdigit():
+                continue
+            end = i
+            if i + 1 < len(tokens) and tokens[i + 1].upper() in DIRECTIONAL_TOKENS:
+                end = i + 1
+            return " ".join(tokens[: end + 1])
+    return " ".join(tokens[:4])
+
 
 @dataclass(slots=True)
 class RequestBudget:

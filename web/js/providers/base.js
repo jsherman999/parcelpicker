@@ -14,7 +14,30 @@ const STREET_TYPES = new Set([
   "SQ", "SQUARE", "ALY", "ALLEY", "ROW", "BND", "BEND", "CRES", "CRESCENT",
 ]);
 
-const DIRECTIONALS = new Set(["N", "S", "E", "W", "NE", "NW", "SE", "SW"]);
+export const DIRECTIONALS = new Set(["N", "S", "E", "W", "NE", "NW", "SE", "SW"]);
+
+// House number + street name (+ type + directional), cut at the first
+// street-type token so a trailing city token is excluded (mirror of
+// backend/services/base.py street_prefix).
+//   "30281 NATURE RD ROYALTON" -> "30281 NATURE RD"
+// Falls back to the first 4 tokens when no street-type token is present.
+export function streetPrefix(address) {
+  const tokens = String(address || "").split(/\s+/).filter(Boolean);
+  if (!tokens.length || !/^\d+$/.test(tokens[0])) return null;
+  for (let i = 1; i < tokens.length; i += 1) {
+    if (STREET_TYPES.has(tokens[i].toUpperCase())) {
+      // A numeric token right after the type means it is part of the street
+      // name ("TOWN ROAD 129"), not a boundary.
+      if (i + 1 < tokens.length && /^\d+$/.test(tokens[i + 1])) continue;
+      let end = i;
+      if (i + 1 < tokens.length && DIRECTIONALS.has(tokens[i + 1].toUpperCase())) {
+        end = i + 1;
+      }
+      return tokens.slice(0, end + 1).join(" ");
+    }
+  }
+  return tokens.slice(0, 4).join(" ");
+}
 
 export class BaseParcelProvider {
   // Subclasses override these class fields.

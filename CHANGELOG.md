@@ -2,6 +2,30 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.8.0] - 2026-08-21
+
+### Added
+- Eleven more Minnesota counties (16 total): Ramsey, Olmsted, Chisago, Morrison,
+  Scott, Aitkin, Koochiching, Beltrami, Dakota, Washington, and Carver.
+- `backend/services/{ramsey,olmsted,chisago,morrison,scott,aitkin,koochiching,beltrami}.py`
+  and matching `web/js/providers/*.js` ports for each county.
+- `backend/services/mn_state.py` / `web/js/providers/mn_state.js` — shared
+  statewide-schema adapter for Dakota (layer 2), Washington (layer 6), and
+  Carver (layer 1) on the MN state parcel server, each with a `CO_NAME` safety
+  clause. Carver uses `TAX_NAME` for owner (its `OWNER_NAME` column is null).
+- `street_prefix` helper in the base class for bounding address WHERE clauses
+  on street-only fields; new county adapters strip city/state/zip before
+  exact matching and use prefix `LIKE` for contains matching.
+- County boundary polygons for all 16 counties in `web/county_boundaries.geojson`;
+  county entries in `countyConfig` (both UIs), dropdowns, `README.md` table,
+  and `cors-test.html` harness.
+
+### Notes
+- All new endpoints verified live 2026-08-21 (metadata, attribute, spatial,
+  and end-to-end address lookups). See `county_expansion.md`.
+- Olmsted parcel geometries are published with a ≈0.7° east offset; address
+  lookups are unaffected, map display may be shifted.
+
 ## [0.7.0] - 2026-06-19
 
 ### Added

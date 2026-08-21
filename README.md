@@ -23,13 +23,37 @@ Supports **Wright, Hennepin, and St. Louis counties in Minnesota**, with the ful
 
 ## Counties Supported
 
+Sixteen Minnesota counties are supported. Select one from the dropdown in the web UI; the map center, address placeholder, and external property links update automatically.
+
 | County | Parcel ID field | ArcGIS Server | Spatial Ref |
 |---|---|---|---|
 | **Wright** | `PID` | `web.co.wright.mn.us/arcgisserver` | 4326 (WGS84) |
 | **Hennepin** | `PID` | `gis.hennepin.us/arcgis` | 26915 (UTM 15N) |
 | **St. Louis** | `PRCL_NBR` | `gis.stlouiscountymn.gov/server2` | 102100 (Web Mercator) |
+| **Sherburne** | `PIN` | `gis.co.sherburne.mn.us/arcgis` | 4326 (WGS84) |
+| **Anoka** | `PIN` | `gisservices.co.anoka.mn.us/anoka_gis` | 4326 (WGS84) |
+| **Ramsey** | `ParcelID` | `maps.co.ramsey.mn.us/arcgis` | 4326 (WGS84) |
+| **Olmsted** | `PIN` | `public.gis.olmstedcounty.gov/arcgis` | 4326 (WGS84) * |
+| **Chisago** | `PIN` | `gis.chisagocounty.us/arcgis` | 102100 (Web Mercator) |
+| **Morrison** | `PIN` | `services1.arcgis.com (ArcGIS Online)` | 4326 (WGS84) |
+| **Scott** | `PID` | `services.arcgis.com (ArcGIS Online)` | 103778 (NAD83 HARN MN South) |
+| **Aitkin** | `PRCL_NBR` | `gisweb.co.aitkin.mn.us/arcgis` | 4326 (WGS84) |
+| **Koochiching** | `PARCEL_ID` | `services3.arcgis.com (ArcGIS Online)` | 26915 (UTM 15N) |
+| **Beltrami** | `PIN` | `arcgis.co.beltrami.mn.us/arcgis` | 4326 (WGS84) |
+| **Dakota** | `PIN` | `arcgis.metc.state.mn.us` (MN state) | 26915 (UTM 15N) |
+| **Washington** | `PIN` | `arcgis.metc.state.mn.us` (MN state) | 26915 (UTM 15N) |
+| **Carver** | `PIN` | `arcgis.metc.state.mn.us` (MN state) | 26915 (UTM 15N) |
 
-Select the county from the dropdown in the web UI. The map center, address placeholder, and external property links update automatically.
+\* **Olmsted note:** the county's parcel layer is published with a geometry
+offset (≈0.7° east of true WGS84). Address lookups are unaffected, but map
+display and map-click / geocode point-intersects may be shifted. See
+`county_expansion.md` §2.2.
+
+Dakota, Washington, and Carver are served by the shared MN state parcel
+server (`arcgis.metc.state.mn.us`), one layer per county; each query is
+constrained with a `CO_NAME` safety clause so a mis-routed request can never
+return another county's parcels. Carver uses the `TAX_NAME` field for the
+owner (the layer's `OWNER_NAME` column is entirely null, verified 2026-08-21).
 
 ## Data Sources
 
