@@ -8,6 +8,8 @@ export class OlmstedProvider extends BaseParcelProvider {
   sourceLabel = "olmsted_county_arcgis";
   parcelIdField = "PIN";
   ownerField = "OwnerName1";
+  valueField = "EMVTotal";
+  landUseField = "LandUseDes";
   // No single street field: the address is component fields, so the base
   // where builders are replaced (see below) and addressField stays empty.
   addressField = "";

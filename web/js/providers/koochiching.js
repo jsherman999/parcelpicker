@@ -8,6 +8,7 @@ export class KoochichingProvider extends BaseParcelProvider {
   sourceLabel = "koochiching_county_arcgis";
   parcelIdField = "PARCEL_ID";
   ownerField = "OWNNAME";
+  landUseField = "CLASSCODE1";
   addressField = "ADDR_1";
   extraOutFields = ["CITY", "ZIP_CODE_5"];
   adjacentSpatialRel = "esriSpatialRelIntersects";

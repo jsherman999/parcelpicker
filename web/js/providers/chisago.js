@@ -8,6 +8,9 @@ export class ChisagoProvider extends BaseParcelProvider {
   sourceLabel = "chisago_county_arcgis";
   parcelIdField = "PIN";
   ownerField = "Ownname";
+  valueField = "TotalValue";
+  valueYearField = "AssessYear";
+  landUseField = "ClassCd1";
   addressField = "PropAddr";
   extraOutFields = ["PropCity", "PropZip"];
   adjacentSpatialRel = "esriSpatialRelIntersects";

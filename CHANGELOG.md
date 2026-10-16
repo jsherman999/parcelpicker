@@ -2,6 +2,34 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.10.0] - 2026-10-16
+
+### Added
+- Estimated market value and land use / property class for every county
+  whose layer publishes them (36 with value, 17 of those with the assessment
+  or market year; 47 with land use), shown in the results table, the map
+  popup, and the CSV/GeoJSON exports (`est_market_value`,
+  `market_value_year`, `land_use`), and kept in the IndexedDB cache.
+  `BaseParcelProvider` gains `valueField` (a field, or a list of fields that
+  are summed; Sherburne sums `EMV_LAND` + `EMV_BLDG`), `valueYearField` and
+  `landUseField`. The spec bundle carries `value` / `valueYear` / `landUse`
+  per county. Placeholder values (-9999, 0, NULL, blanks, padding) show "—".
+- Run records are versioned. Runs cached before this release stay in history
+  but are not reused as cache hits, so lookups re-fetch with the new fields.
+- Lake of the Woods (2021) and Traverse (tax year 2019) are labeled as stale
+  snapshots in the county dropdown.
+
+### Changed
+- County-supplied text in the results table and map popup is HTML-escaped.
+- Hennepin's and Sherburne's `_getOutfields` overrides were removed; they
+  matched the base behavior and would have dropped the new fields.
+
+### Notes
+- Dakota keeps the MN state (metc) layer: `EMV_TOTAL` / `USECLASS1` /
+  `MKT_YEAR` are filled for 148,567 of 154,315 Dakota parcels. The -9999 rows
+  are null-PIN features at the start of the layer.
+- The Python backend was not updated with these fields.
+
 ## [0.9.0] - 2026-10-16
 
 ### Added

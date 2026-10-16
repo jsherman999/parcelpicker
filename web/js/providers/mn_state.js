@@ -17,6 +17,9 @@ export class MnStateSchemaProvider extends BaseParcelProvider {
   coName = "";
   parcelIdField = "PIN";
   ownerField = "OWNER_NAME";
+  valueField = "EMV_TOTAL";
+  valueYearField = "MKT_YEAR";
+  landUseField = "USECLASS1";
   addressField = "";
   extraOutFields = [
     "ANUMBER",

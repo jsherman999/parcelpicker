@@ -8,6 +8,8 @@ export class BeltramiProvider extends BaseParcelProvider {
   sourceLabel = "beltrami_county_arcgis";
   parcelIdField = "PIN";
   ownerField = "OWNERNAME1";
+  valueField = "EMV_TTL";
+  landUseField = "USE1_DESC";
   addressField = "PROP_ADD1";
   extraOutFields = ["OWNERNAME2", "PROP_CITY", "PROP_ZIP"];
   adjacentSpatialRel = "esriSpatialRelIntersects";

@@ -10,6 +10,8 @@ export class MorrisonProvider extends BaseParcelProvider {
   sourceLabel = "morrison_county_arcgis";
   parcelIdField = "PIN";
   ownerField = "Primary_Owner";
+  valueField = "Total_EMV";
+  landUseField = "PriClass";
   // Single usable street string; the Situs* components are stored with the
   // literal text "NULL" on many records, so the freeform field is the
   // reliable match target ("30281 NATURE RD").

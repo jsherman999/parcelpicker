@@ -8,6 +8,9 @@ export class RamseyProvider extends BaseParcelProvider {
   sourceLabel = "ramsey_county_arcgis";
   parcelIdField = "ParcelID";
   ownerField = "OwnerName";
+  valueField = "EMVTotal";
+  valueYearField = "EMVYear";
+  landUseField = "LandUseCodeDescription";
   addressField = "SiteAddress";
   extraOutFields = ["SiteCityName", "SiteZIP5"];
   adjacentSpatialRel = "esriSpatialRelIntersects";

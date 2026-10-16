@@ -8,6 +8,8 @@ export class SherburneProvider extends BaseParcelProvider {
   sourceLabel = "sherburne_county_arcgis";
   parcelIdField = "PIN";
   ownerField = "OWNER_NAME";
+  valueField = ["EMV_LAND", "EMV_BLDG"];
+  landUseField = "CLS_DESC";
   addressField = "";
   extraOutFields = [
     "BLDG_NUM",
@@ -18,10 +20,6 @@ export class SherburneProvider extends BaseParcelProvider {
     "CITY_MAIL",
     "ZIP",
   ];
-
-  _getOutfields() {
-    return [this.parcelIdField, this.ownerField, ...this.extraOutFields].join(",");
-  }
 
   _getAddressWhereExact(cleaned) {
     const houseNo = this._extractHouseNumber(cleaned);

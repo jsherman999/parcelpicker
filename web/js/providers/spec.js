@@ -21,6 +21,9 @@ export class SpecParcelProvider extends BaseParcelProvider {
     // blanked there, so those counties skip the address WHERE queries and go
     // straight to geocode -> point intersect.
     this.addressField = spec.fields.address || "";
+    this.valueField = spec.fields.value || "";
+    this.valueYearField = spec.fields.valueYear || "";
+    this.landUseField = spec.fields.landUse || "";
     this.filter = spec.filter || "";
   }
 

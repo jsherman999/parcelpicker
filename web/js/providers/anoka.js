@@ -8,6 +8,8 @@ export class AnokaProvider extends BaseParcelProvider {
   sourceLabel = "anoka_county_arcgis";
   parcelIdField = "PIN";
   ownerField = "OWNER";
+  valueField = "MKT_VALUE";
+  landUseField = "PROP_CLASS";
   addressField = "LOC_ADDR";
   extraOutFields = ["LOC_CITY", "LOC_ZIP"];
 

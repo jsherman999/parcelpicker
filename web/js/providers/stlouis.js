@@ -8,6 +8,9 @@ export class StLouisProvider extends BaseParcelProvider {
   sourceLabel = "stlouis_county_arcgis";
   parcelIdField = "PRCL_NBR";
   ownerField = "OWNAME";
+  valueField = "EstTotalValue";
+  valueYearField = "ASMT_YR";
+  landUseField = "TPCLS1";
   addressField = "PHYSADDR";
   extraOutFields = ["PHYSCITY", "PHYSZIP"];
 

@@ -8,6 +8,9 @@ export class AitkinProvider extends BaseParcelProvider {
   sourceLabel = "aitkin_county_arcgis";
   parcelIdField = "PRCL_NBR";
   ownerField = "OWNNAME";
+  valueField = "ESTTOTVAL";
+  valueYearField = "ASMT_YR";
+  landUseField = "TPCLS1";
   addressField = "ADDR_1";
   extraOutFields = ["ADDR_2", "Physical_Address", "Physical_City", "Physical_Zip"];
   adjacentSpatialRel = "esriSpatialRelIntersects";

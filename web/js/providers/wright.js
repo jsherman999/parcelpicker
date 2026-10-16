@@ -8,6 +8,9 @@ export class WrightProvider extends BaseParcelProvider {
   sourceLabel = "wright_county_arcgis";
   parcelIdField = "PID";
   ownerField = "OWNNAME";
+  valueField = "EMV";
+  valueYearField = "ASMT_YR";
+  landUseField = "TPCLS1_DSC";
   addressField = "PHYSADDR";
   adjacentSpatialRel = "esriSpatialRelIntersects";
 }

@@ -14,6 +14,6 @@ for c in sorted(bundle["counties"].values(), key=lambda c: c["label"]):
     elif c.get("filter"):
         notes.append(f"filter `{c['filter']}`")
     if c.get("coverage"):
-        notes.append(f"**partial:** {c['coverage']}")
+        notes.append(f"**{c['badge']}:** {c['coverage']}")
     rows.append(f"| {c['label'].replace(' County', '')} | `{c['fields']['apn']}` | `{c['fields']['owner']}` | {addr} | `{host}` | {'; '.join(notes)} |")
 print("\n".join(rows))

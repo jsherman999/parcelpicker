@@ -282,6 +282,7 @@ for (const spec of Object.values(SPEC_COUNTIES)) {
     arcgisJsonIdField: apn,
     arcgisJsonFilter: spec.filter,
     zillowSuffix: `${spec.label} MN`,
+    badge: spec.badge || "",
     coverage: spec.coverage || "",
   };
 }
@@ -297,8 +298,8 @@ function populateCountySelect() {
   );
   countySelect.replaceChildren(
     ...ids.map((id) => {
-      const { label, coverage } = countyConfig[id];
-      return new Option(coverage ? `${label} (partial)` : label, id, false, id === current);
+      const { label, badge } = countyConfig[id];
+      return new Option(badge ? `${label} (${badge})` : label, id, false, id === current);
     })
   );
 }
@@ -394,7 +395,7 @@ function applyCounty({ keepView = false } = {}) {
   if (!keepView) map.setView(cfg.center, cfg.zoom);
   drawCountyBorder();
   resetSession();
-  if (cfg.coverage) setStatus(`Partial coverage: ${cfg.label} ${cfg.coverage}.`);
+  if (cfg.coverage) setStatus(`Note: ${cfg.label} ${cfg.coverage}.`);
 }
 
 countySelect.addEventListener("change", applyCounty);
@@ -595,8 +596,10 @@ function renderParcels(parcels, highlightId = null) {
     }).addTo(map);
 
     layer.bindPopup(
-      `<strong>Parcel:</strong> ${parcel.parcel_id}<br/>` +
-        `<strong>Owner:</strong> ${parcel.owner_name || "(unknown)"}<br/>` +
+      `<strong>Parcel:</strong> ${escapeHtml(parcel.parcel_id)}<br/>` +
+        `<strong>Owner:</strong> ${escapeHtml(parcel.owner_name || "(unknown)")}<br/>` +
+        `<strong>Est. market value:</strong> ${escapeHtml(formatMarketValue(parcel))}<br/>` +
+        `<strong>Land use / class:</strong> ${escapeHtml(parcel.land_use || "—")}<br/>` +
         `<strong>Ring:</strong> ${parcel.ring_number}`
     );
 
@@ -610,12 +613,26 @@ function renderParcels(parcels, highlightId = null) {
   if (bounds.isValid()) map.fitBounds(bounds.pad(0.2));
 }
 
+// "$412,300 (2026)": Minnesota's Estimated Market Value, with the assessment
+// year when the county layer publishes one; "—" when it doesn't.
+const usd = new Intl.NumberFormat("en-US", {
+  style: "currency",
+  currency: "USD",
+  maximumFractionDigits: 0,
+});
+function formatMarketValue(parcel) {
+  const value = Number(parcel.market_value);
+  if (!Number.isFinite(value) || value <= 0) return "—";
+  const year = parcel.market_value_year ? ` (${parcel.market_value_year})` : "";
+  return `${usd.format(value)}${year}`;
+}
+
 function renderTable(parcels) {
   resultsBody.innerHTML = "";
 
   if (!parcels.length) {
     resultsBody.innerHTML =
-      '<tr><td colspan="5" class="empty">No parcels to display.</td></tr>';
+      '<tr><td colspan="7" class="empty">No parcels to display.</td></tr>';
     return;
   }
 
@@ -623,10 +640,12 @@ function renderTable(parcels) {
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td>${parcel.ring_number}${parcel.is_seed ? " (seed)" : ""}</td>
-      <td>${parcel.parcel_id}</td>
-      <td>${parcel.owner_name || ""}</td>
-      <td>${parcel.normalized_owner_name || ""}</td>
-      <td>${parcel.site_address || ""}</td>
+      <td>${escapeHtml(parcel.parcel_id)}</td>
+      <td>${escapeHtml(parcel.owner_name || "")}</td>
+      <td>${escapeHtml(parcel.normalized_owner_name || "")}</td>
+      <td>${escapeHtml(parcel.site_address || "")}</td>
+      <td class="num">${escapeHtml(formatMarketValue(parcel))}</td>
+      <td>${escapeHtml(parcel.land_use || "—")}</td>
     `;
     resultsBody.appendChild(tr);
   }

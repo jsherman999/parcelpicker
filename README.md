@@ -105,7 +105,7 @@ the layer's Parcel JSON.
 | Kanabec | `PIN` | `OWNER_ORIG` | `SiteAddress` | `wfs.schneidercorp.com` |  |
 | Lac qui Parle | `PIN` | `OWNERNAME` | `PHYADD` | `services5.arcgis.com` |  |
 | Lake | `gis_pid` | `tax_ownname` | geocode → point | `enterprise.gisdata.mn.gov` |  |
-| Lake of the Woods | `county_pin` | `tax_name` | geocode → point | `services.arcgis.com` |  |
+| Lake of the Woods | `county_pin` | `tax_name` | geocode → point | `services.arcgis.com` | **2021 data:** parcel data is a 2021 snapshot, so owners may be out of date |
 | Le Sueur | `PARCEL_NUMBER` | `OWNER_NAME_1` | geocode → point | `gis.co.le-sueur.mn.us` |  |
 | Lincoln | `PARCEL_NUM` | `TP_NAME1` | geocode → point | `services2.arcgis.com` |  |
 | Lyon | `Parcel_ID` | `TXTNAM` | geocode → point | `services.arcgis.com` |  |
@@ -134,7 +134,7 @@ the layer's Parcel JSON.
 | Steele | `PIN` | `OWNAME` | `QRYADDRESS` | `gis.steele.mn` |  |
 | Stevens | `PIN` | `Name` | geocode → point | `services2.arcgis.com` |  |
 | Swift | `PIN` | `OWNAME` | geocode → point | `services3.arcgis.com` |  |
-| Traverse | `PARCEL_NUM` | `TAXPAYER_N` | geocode → point | `services.arcgis.com` |  |
+| Traverse | `PARCEL_NUM` | `TAXPAYER_N` | geocode → point | `services.arcgis.com` | **2019 data:** parcel data is from tax year 2019, so owners may be out of date |
 | Wabasha | `county_pin` | `owner_name` | geocode → point | `enterprise.gisdata.mn.gov` | filter `county_pin IS NOT NULL AND objectid NOT IN (7709, 8246)` |
 | Wadena | `PARCEL_NUM` | `TAXPAYER_NAME` | `PHYSICAL_ADDRESS` | `gis.co.wadena.mn.us` |  |
 | Wilkin | `PARCELID` | `TAXPAYER_NAME` | geocode → point | `gisweb.co.wilkin.mn.us` |  |
@@ -153,6 +153,32 @@ the layer's Parcel JSON.
 | Fillmore | The parcel server is http-only (https times out), which browsers block on an https page |
 | Todd | Owner is `'0'` for 94% of parcels |
 | Nicollet | The only public layer is a 2021 snapshot of part of North Mankato, with owner last names only |
+
+### Market value and land use
+
+The results table, map popups, and CSV/GeoJSON exports include **Est. market
+value** and **Land use / class** wherever the county's layer publishes them.
+In Minnesota the "assessed value" is the county's Estimated Market Value. The
+value shows the assessment or market year when the layer has one (for example
+`MKT_YEAR`, `ASMT_YR`, `AssessmentYear`, `EMVYear`); tax-payable years are not
+used. Missing values (`-9999`, `0`, `NULL`, blanks) show "—". Land use is shown
+as the county gives it: a description, a Minnesota tax-class string
+(`2A AGRICULTURAL`), or a bare local code (`201`, `662`). Sherburne has no total
+field, so its value is `EMV_LAND` + `EMV_BLDG`.
+
+Fields were checked on 2026-10-16 against about 300 parcels per layer, sampled
+evenly across the layer. Every field kept is at least 50% filled; most are over
+90%.
+
+- **Both value and land use (34):** Aitkin, Anoka, Beltrami, Carlton, Carver, Cass, Chisago, Clay, Clearwater, Cook, Crow Wing, Dakota, Hennepin, Hubbard, Isanti, Itasca, Jackson, Le Sueur, Lyon, Morrison, Mower, Olmsted, Pipestone, Pope, Ramsey, Rice, Scott, Sherburne, St. Louis, Stearns, Wabasha, Washington, Winona, Wright.
+- **Value only (2):** Lake, Wilkin.
+- **Land use only (13):** Chippewa, Cottonwood, Koochiching, Lake of the Woods, Martin, McLeod, Mille Lacs, Nobles, Otter Tail, Pine, Renville, Sibley, Steele. Koochiching
+  publishes only a land-only value (`TAXABLELANDVALUE`, about 30% filled), and
+  Lake of the Woods' values are from 2021.
+- **Neither (25):** Benton, Big Stone, Dodge, Douglas, Faribault, Freeborn, Goodhue, Grant, Kanabec, Lac qui Parle, Lincoln, Mahnomen, Marshall, Meeker, Murray, Norman, Pennington, Polk, Red Lake, Roseau, Stevens, Swift, Traverse, Wadena, Yellow Medicine.
+- **Value year shown (17):** Aitkin, Chisago, Clay, Clearwater, Cook, Crow Wing, Dakota, Lake, Mower, Ramsey, Rice, Scott, St. Louis, Stearns, Wabasha, Washington, Wright.
+
+The Python backend (`backend/`) does not have these fields yet.
 
 ## Data Sources
 

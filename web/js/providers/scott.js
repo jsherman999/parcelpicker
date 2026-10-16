@@ -8,6 +8,9 @@ export class ScottProvider extends BaseParcelProvider {
   sourceLabel = "scott_county_arcgis";
   parcelIdField = "PID";
   ownerField = "TaxPayerName";
+  valueField = "EMVTotal";
+  valueYearField = "AssessmentYear";
+  landUseField = "Classification";
   addressField = "PropertyAddress1";
   extraOutFields = ["PropertyCity", "PropertyZip"];
   adjacentSpatialRel = "esriSpatialRelIntersects";

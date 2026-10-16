@@ -352,6 +352,12 @@ td {
   font-size: 0.92rem;
 }
 
+td.num {
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
 th {
   position: sticky;
   top: 0;

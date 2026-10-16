@@ -20,6 +20,19 @@ export const DIRECTIONALS = new Set(["N", "S", "E", "W", "NE", "NW", "SE", "SW"]
 // which adjacency queries with detailed parcel polygons easily exceed.
 const MAX_GET_URL_LENGTH = 2000;
 
+// County layers mark "no value" with -9999, 0, "NULL", blanks or runs of
+// spaces. These return "" / null for those so the UI can show "—".
+export function cleanText(value) {
+  const s = String(value ?? "").replace(/\s+/g, " ").trim();
+  return /^(?:NULL|-9999(?:\.0+)?|0(?:\.0+)?)?$/i.test(s) ? "" : s;
+}
+
+export function cleanAmount(value) {
+  if (value === null || value === undefined) return null;
+  const n = typeof value === "number" ? value : parseFloat(String(value).replace(/[$,\s]/g, ""));
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
 // House number + street name (+ type + directional), cut at the first
 // street-type token so a trailing city token is excluded (mirror of
 // backend/services/base.py street_prefix).
@@ -52,6 +65,13 @@ export class BaseParcelProvider {
   addressField = "";
   extraOutFields = [];
   adjacentSpatialRel = "esriSpatialRelTouches";
+  // Estimated Market Value (what Minnesota calls the assessed value): one
+  // field, or a list of fields that are summed (Sherburne publishes land and
+  // building EMV separately). valueYearField is the layer's assessment or
+  // market year, when it has one. "" means the county doesn't publish it.
+  valueField = "";
+  valueYearField = "";
+  landUseField = "";
   // Opt-in: send queries whose URL would exceed MAX_GET_URL_LENGTH as a form
   // POST (still a CORS simple request, no preflight). Off by default so the
   // hand-written providers keep their original GET-only requests.
@@ -256,8 +276,24 @@ export class BaseParcelProvider {
   _getOutfields() {
     const fields = [this.parcelIdField, this.ownerField];
     if (this.addressField) fields.push(this.addressField);
-    fields.push(...this.extraOutFields);
-    return fields.join(",");
+    fields.push(...this.extraOutFields, ...this._valueFields());
+    if (this.valueYearField) fields.push(this.valueYearField);
+    if (this.landUseField) fields.push(this.landUseField);
+    return [...new Set(fields)].join(",");
+  }
+
+  _valueFields() {
+    return [this.valueField].flat().filter(Boolean);
+  }
+
+  _marketValue(attrs) {
+    const parts = this._valueFields().map((f) => cleanAmount(attrs[f])).filter((n) => n !== null);
+    return parts.length ? parts.reduce((a, b) => a + b, 0) : null;
+  }
+
+  _marketValueYear(attrs) {
+    const year = this.valueYearField ? Math.trunc(cleanAmount(attrs[this.valueYearField]) || 0) : 0;
+    return year >= 1990 && year <= 2100 ? String(year) : "";
   }
 
   _getAddressWhereExact(cleaned) {
@@ -281,6 +317,9 @@ export class BaseParcelProvider {
       parcel_id: String(attrs[this.parcelIdField] ?? "").trim(),
       owner_name: String(attrs[this.ownerField] ?? "").trim(),
       site_address: this._buildAddress(attrs),
+      market_value: this._marketValue(attrs),
+      market_value_year: this._marketValueYear(attrs),
+      land_use: this.landUseField ? cleanText(attrs[this.landUseField]) : "",
       geometry,
       source: this.sourceLabel,
       matched_by: matchedBy,

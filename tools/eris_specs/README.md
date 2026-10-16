@@ -20,6 +20,7 @@ python3 -I $T/post_cors.py verify.json ~/cc_projects/parcelpicker/web/js/app.js 
 python3 -I $T/coverage.py verify.json tiger.geojson coverage.json       # grid + town coverage
 python3 -I $T/examples_rural.py verify.json tiger.geojson examples.json # example addresses, pass 1
 python3 -I $T/examples_town.py verify.json tiger.geojson examples.json  # example addresses, pass 2 (preferred)
+python3 -I $T/value_fields.py targets.json values.json            # value / year / land-use fill
 python3 -I $T/gen_bundle.py ErisData verify.json examples.json tiger.geojson ~/cc_projects/parcelpicker/web
 python3 -I $T/readme_table.py ~/cc_projects/parcelpicker/web/mn_parcel_specs.json  # README table
 ```
@@ -36,7 +37,10 @@ Review these by hand after a rerun:
 - `ADDRESS_FULL` / `ADDRESS_BLANKED`: which spec address fields hold a full
   site address. Street-name-only, house-number-only and mailing-address
   mappings are blanked, so those counties geocode instead.
-- `COVERAGE`: layers that pass every check but cover only part of the county.
+- `COVERAGE`: layers that pass every check but cover only part of the county
+  or are stale snapshots, shown as a dropdown badge.
+- `VALUE_FIELDS`: estimated market value, value year and land-use fields per
+  county, from `value_fields.py` runs (each kept field is at least 50% filled).
 
 The 2026-10-16 build also had two manual example fixes, both since folded
 into `examples_town.py`. Stevens' "South Street" had been abbreviated to

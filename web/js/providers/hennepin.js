@@ -13,12 +13,10 @@ export class HennepinProvider extends BaseParcelProvider {
   sourceLabel = "hennepin_county_arcgis";
   parcelIdField = "PID";
   ownerField = "OWNER_NM";
+  valueField = "MKT_VAL_TOT";
+  landUseField = "PR_TYP_NM1";
   addressField = "";
   extraOutFields = ["HOUSE_NO", "FRAC_HOUSE_NO", "STREET_NM", "MAILING_MUNIC_NM", "ZIP_CD"];
-
-  _getOutfields() {
-    return [this.parcelIdField, this.ownerField, ...this.extraOutFields].join(",");
-  }
 
   _buildAddress(attrs) {
     const houseNo = attrs.HOUSE_NO;

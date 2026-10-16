@@ -5,6 +5,14 @@ const DB_NAME = "parcelpicker";
 const DB_VERSION = 1;
 const DAY_MS = 86400000;
 const CACHEABLE = new Set(["completed", "capped"]);
+// Bumped when parcel records gain fields (2: market value + land use). Runs
+// saved by older versions stay in history but are not reused as cache hits,
+// so their parcels get re-fetched with the new fields.
+const RECORD_VERSION = 2;
+
+function reusable(run, cutoff) {
+  return CACHEABLE.has(run.status) && run.created_at >= cutoff && (run.record_version || 1) >= RECORD_VERSION;
+}
 
 function req(request) {
   return new Promise((resolve, reject) => {
@@ -132,6 +140,7 @@ export class ParcelStore {
         seed_parcel_id: run.seed_parcel_id,
         summary: run.summary,
         error: run.error,
+        record_version: RECORD_VERSION,
         created_at: now,
         completed_at: now,
       })
@@ -146,6 +155,9 @@ export class ParcelStore {
           owner_name: p.owner_name,
           normalized_owner_name: p.normalized_owner_name,
           site_address: p.site_address,
+          market_value: p.market_value ?? null,
+          market_value_year: p.market_value_year || "",
+          land_use: p.land_use || "",
           geometry: p.geometry,
           source: p.source,
           updated_at: now,
@@ -199,6 +211,9 @@ export class ParcelStore {
         owner_name: p.owner_name,
         normalized_owner_name: p.normalized_owner_name,
         site_address: p.site_address,
+        market_value: p.market_value ?? null,
+        market_value_year: p.market_value_year || "",
+        land_use: p.land_use || "",
         geometry: p.geometry,
         source: p.source,
       });
@@ -237,12 +252,7 @@ export class ParcelStore {
     const cutoff = Date.now() - Math.max(1, maxAgeDays) * DAY_MS;
     const tx = await this._tx(["runs"], "readonly");
     const rows = await req(tx.objectStore("runs").index("seed_parcel_id").getAll(clean));
-    const matches = rows.filter(
-      (r) =>
-        CACHEABLE.has(r.status) &&
-        r.rings_requested >= minRings &&
-        r.created_at >= cutoff
-    );
+    const matches = rows.filter((r) => reusable(r, cutoff) && r.rings_requested >= minRings);
     if (!matches.length) return null;
     matches.sort((a, b) => b.id - a.id);
     return this.getRun(matches[0].id);
@@ -252,7 +262,7 @@ export class ParcelStore {
     const cutoff = Date.now() - Math.max(1, maxAgeDays) * DAY_MS;
     const runs = await this._getAll("runs");
     const recentRunIds = new Set(
-      runs.filter((r) => CACHEABLE.has(r.status) && r.created_at >= cutoff).map((r) => r.id)
+      runs.filter((r) => reusable(r, cutoff)).map((r) => r.id)
     );
     if (!recentRunIds.size) return [];
 
@@ -272,6 +282,9 @@ export class ParcelStore {
           parcel_id: p.parcel_id,
           owner_name: p.owner_name,
           site_address: p.site_address,
+          market_value: p.market_value ?? null,
+          market_value_year: p.market_value_year || "",
+          land_use: p.land_use || "",
           geometry: p.geometry,
           source: p.source,
         });

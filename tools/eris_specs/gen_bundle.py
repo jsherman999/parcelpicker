@@ -42,8 +42,11 @@ UNSUPPORTED = {
 # Layers that pass every check but cover only part of the county (from the
 # coverage probe: grid points plus parcel counts around each town center).
 COVERAGE = {
-    "27105": "parcel data covers the Worthington area only",
-    "27091": "parcel data covers rural parcels only; Fairmont, Truman and Ceylon are missing",
+    "27105": ("partial", "parcel data covers the Worthington area only"),
+    "27091": ("partial", "parcel data covers rural parcels only; Fairmont, Truman and Ceylon are missing"),
+    # Stale snapshots (tax_year / TAX_YEAR on ~97% of parcels).
+    "27077": ("2021 data", "parcel data is a 2021 snapshot, so owners may be out of date"),
+    "27155": ("2019 data", "parcel data is from tax year 2019, so owners may be out of date"),
 }
 
 # Spec address fields that hold a full site street address (house number +
@@ -68,6 +71,52 @@ ADDRESS_BLANKED = {
     "27095": "taxpayer mailing address, not the site address",
     "27149": "taxpayer mailing address (PO boxes), not the site address",
     "27155": "taxpayer mailing address, not the site address",
+}
+
+
+# Estimated market value / value year / land-use fields, checked 2026-10-16
+# against ~300 parcels per layer sampled evenly by object id (each kept
+# field is >= 50% filled). Starts from the spec's assessed_value / land_use,
+# minus land-only values (EMV_LAND, TAXABLELANDVALUE) and wrong mappings:
+# Lake GIS_OWNERTYPE, Marshall/Norman CITY_TWP_NAME, Yellow Medicine
+# TILLABLE_ACRES, Douglas TX_DSC_1_8 (acreage text), Wilkin LAND_CLASS_PROPERTY
+# (land-valuation class). Martin's unmapped land_use_class is added (its
+# mkt_val_tot is empty); Lake of the Woods' 2021 values are left out. Year
+# fields are assessment/market years only, never tax-payable years.
+VALUE_FIELDS = {
+    "27017": ("ESTTOTVAL", "", "TPCLS1"),
+    "27021": ("emv_total", "", "useclass1"),
+    "27023": ("", "", "useclass1"),
+    "27027": ("EMV_TOTAL", "MKT_YEAR", "USECLASS1"),
+    "27029": ("emv_total", "mkt_year", "useclass1"),
+    "27031": ("EMV_TOTAL", "MKT_YEAR", "USECLASS1"),
+    "27033": ("", "", "propclass"),
+    "27035": ("ESTTOTVAL", "ASMT_YR", "TPCLS1"),
+    "27057": ("EMVTOT", "", "Class1"),
+    "27059": ("CNTASSDVAL", "", "PRIMARYUSECODE"),
+    "27061": ("EMV", "", "CLASS_CODE"),
+    "27063": ("emv_total", "", "useclass1"),
+    "27075": ("gis_emv", "tax_assmntyear", ""),
+    "27077": ("", "", "useclass1"),
+    "27079": ("TOTAL_ESTIMATED_MARKET_VALUE", "", "CLASSIFICATION_1"),
+    "27083": ("TaxTotal", "", "Asmtdesc"),
+    "27085": ("", "", "useclass1"),
+    "27091": ("", "", "land_use_class"),
+    "27095": ("", "", "useclass1"),
+    "27099": ("emv_total", "mkt_year", "useclass1"),
+    "27105": ("", "", "PropClass"),
+    "27111": ("", "", "TPCLS1_DSC"),
+    "27115": ("", "", "class"),
+    "27117": ("EMV_TOTAL", "", "CLASSIFICATION_1"),
+    "27121": ("EstimatedMarketValue", "", "CLASSIFICATIONS"),
+    "27129": ("", "", "CLASSIFICATION_1"),
+    "27131": ("EMV_TOTAL", "MKT_YEAR", "USECLASS1"),
+    "27143": ("", "", "CLASSIFICATIONS"),
+    "27145": ("REF_MARKET_VALUE", "ASSESSMENT_YEAR", "PROPCLASSLONG"),
+    "27147": ("", "", "AVCLASDESC1"),
+    "27157": ("emv_total", "mkt_year", "useclass1"),
+    "27167": ("TOTAL_MARKET_VALUE", "", ""),
+    "27169": ("aprtot", "", "class"),
 }
 
 
@@ -141,12 +190,14 @@ def main():
                 entry["addressNote"] = f"spec address {spec_addr} not used: {ADDRESS_BLANKED[fips]}"
         else:
             assert fips not in ADDRESS_FULL and fips not in ADDRESS_BLANKED, fips
+        value, value_year, land_use = VALUE_FIELDS.get(fips, ("", "", ""))
+        fields.update({"value": value, "valueYear": value_year, "landUse": land_use})
         entry["fields"] = fields
         entry["center"], entry["zoom"] = center_zoom(tiger[fips]["geometry"])
         example = pick_example(ph.get(fips) or {})
         entry["placeholder"] = f"Example: {example}" if example else "Full street address + city + MN + ZIP (or click the map)"
         if fips in COVERAGE:
-            entry["coverage"] = COVERAGE[fips]
+            entry["badge"], entry["coverage"] = COVERAGE[fips]
         entry["verified"] = VERIFIED
         counties[cid] = entry
 
@@ -184,7 +235,9 @@ def main():
 
     print(f"{len(counties)} spec counties; {len(feats)} boundaries; "
           f"{sum(1 for c in counties.values() if c['fields']['address'])} with address field; "
-          f"{sum(1 for c in counties.values() if c['placeholder'].startswith('Example'))} with example address")
+          f"{sum(1 for c in counties.values() if c['placeholder'].startswith('Example'))} with example address; "
+          f"{sum(1 for c in counties.values() if c['fields']['value'])} with value; "
+          f"{sum(1 for c in counties.values() if c['fields']['landUse'])} with land use")
 
 
 main()

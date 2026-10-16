@@ -20,7 +20,10 @@
    "fields": {
     "apn": "TaxPIN",
     "owner": "TAXPAYER_NAME1",
-    "address": "PROPERTY_ADDRESS"
+    "address": "PROPERTY_ADDRESS",
+    "value": "",
+    "valueYear": "",
+    "landUse": ""
    },
    "center": [
     45.6917,
@@ -41,7 +44,10 @@
    "fields": {
     "apn": "PARCEL_NUMBER",
     "owner": "TAXPAYER_NAME",
-    "address": ""
+    "address": "",
+    "value": "",
+    "valueYear": "",
+    "landUse": ""
    },
    "center": [
     45.3814,
@@ -62,7 +68,10 @@
    "fields": {
     "apn": "PARCELID",
     "owner": "OWNAME",
-    "address": ""
+    "address": "",
+    "value": "ESTTOTVAL",
+    "valueYear": "",
+    "landUse": "TPCLS1"
    },
    "center": [
     46.5931,
@@ -84,7 +93,10 @@
    "fields": {
     "apn": "county_pin",
     "owner": "owner_name",
-    "address": ""
+    "address": "",
+    "value": "emv_total",
+    "valueYear": "",
+    "landUse": "useclass1"
    },
    "center": [
     46.8787,
@@ -105,7 +117,10 @@
    "fields": {
     "apn": "state_pin",
     "owner": "owner_name",
-    "address": ""
+    "address": "",
+    "value": "",
+    "valueYear": "",
+    "landUse": "useclass1"
    },
    "center": [
     44.9516,
@@ -126,7 +141,10 @@
    "fields": {
     "apn": "PIN",
     "owner": "TAX_NAME",
-    "address": "PropertyAddress"
+    "address": "PropertyAddress",
+    "value": "EMV_TOTAL",
+    "valueYear": "MKT_YEAR",
+    "landUse": "USECLASS1"
    },
    "center": [
     46.8901,
@@ -148,7 +166,10 @@
    "fields": {
     "apn": "county_pin",
     "owner": "tax_name",
-    "address": ""
+    "address": "",
+    "value": "emv_total",
+    "valueYear": "mkt_year",
+    "landUse": "useclass1"
    },
    "center": [
     47.5861,
@@ -169,7 +190,10 @@
    "fields": {
     "apn": "COUNTY_PIN",
     "owner": "OWNER_NAME",
-    "address": ""
+    "address": "",
+    "value": "EMV_TOTAL",
+    "valueYear": "MKT_YEAR",
+    "landUse": "USECLASS1"
    },
    "center": [
     47.7451,
@@ -190,7 +214,10 @@
    "fields": {
     "apn": "PIN",
     "owner": "deedhold",
-    "address": ""
+    "address": "",
+    "value": "",
+    "valueYear": "",
+    "landUse": "propclass"
    },
    "center": [
     44.0219,
@@ -211,7 +238,10 @@
    "fields": {
     "apn": "PIN",
     "owner": "OWNAME",
-    "address": ""
+    "address": "",
+    "value": "ESTTOTVAL",
+    "valueYear": "ASMT_YR",
+    "landUse": "TPCLS1"
    },
    "center": [
     46.4811,
@@ -232,7 +262,10 @@
    "fields": {
     "apn": "PIN",
     "owner": "C0NAME1P",
-    "address": "FULL_ADD"
+    "address": "FULL_ADD",
+    "value": "",
+    "valueYear": "",
+    "landUse": ""
    },
    "center": [
     44.0226,
@@ -253,7 +286,10 @@
    "fields": {
     "apn": "PIN",
     "owner": "TXOTXT_NAM",
-    "address": "TXPADR1"
+    "address": "TXPADR1",
+    "value": "",
+    "valueYear": "",
+    "landUse": ""
    },
    "center": [
     45.9335,
@@ -274,7 +310,10 @@
    "fields": {
     "apn": "COUNTY_PIN",
     "owner": "TAX_NAME",
-    "address": ""
+    "address": "",
+    "value": "",
+    "valueYear": "",
+    "landUse": ""
    },
    "center": [
     43.6739,
@@ -296,7 +335,10 @@
    "fields": {
     "apn": "PIN",
     "owner": "DEEDHOLDER",
-    "address": ""
+    "address": "",
+    "value": "",
+    "valueYear": "",
+    "landUse": ""
    },
    "center": [
     43.6741,
@@ -317,7 +359,10 @@
    "fields": {
     "apn": "PIN",
     "owner": "C0NAME1P",
-    "address": "FULLSTREET"
+    "address": "FULLSTREET",
+    "value": "",
+    "valueYear": "",
+    "landUse": ""
    },
    "center": [
     44.4546,
@@ -339,7 +384,10 @@
    "fields": {
     "apn": "PARCELID",
     "owner": "TAXPAYER_NAME",
-    "address": ""
+    "address": "",
+    "value": "",
+    "valueYear": "",
+    "landUse": ""
    },
    "center": [
     45.934,
@@ -361,7 +409,10 @@
    "fields": {
     "apn": "hubbgis_GIS_Parcels_PIN",
     "owner": "PINAME1",
-    "address": ""
+    "address": "",
+    "value": "EMVTOT",
+    "valueYear": "",
+    "landUse": "Class1"
    },
    "center": [
     47.1082,
@@ -383,7 +434,10 @@
    "fields": {
     "apn": "PARCELID",
     "owner": "OWNERNME1",
-    "address": ""
+    "address": "",
+    "value": "CNTASSDVAL",
+    "valueYear": "",
+    "landUse": "PRIMARYUSECODE"
    },
    "center": [
     45.573,
@@ -405,7 +459,10 @@
    "fields": {
     "apn": "PRCL_NBR",
     "owner": "TAO_NAME",
-    "address": ""
+    "address": "",
+    "value": "EMV",
+    "valueYear": "",
+    "landUse": "CLASS_CODE"
    },
    "center": [
     47.4621,
@@ -426,7 +483,10 @@
    "fields": {
     "apn": "county_pin",
     "owner": "owner_name",
-    "address": ""
+    "address": "",
+    "value": "emv_total",
+    "valueYear": "",
+    "landUse": "useclass1"
    },
    "center": [
     43.6744,
@@ -447,7 +507,10 @@
    "fields": {
     "apn": "PIN",
     "owner": "OWNER_ORIG",
-    "address": "SiteAddress"
+    "address": "SiteAddress",
+    "value": "",
+    "valueYear": "",
+    "landUse": ""
    },
    "center": [
     45.945,
@@ -468,7 +531,10 @@
    "fields": {
     "apn": "PIN",
     "owner": "OWNERNAME",
-    "address": "PHYADD"
+    "address": "PHYADD",
+    "value": "",
+    "valueYear": "",
+    "landUse": ""
    },
    "center": [
     45.0374,
@@ -490,7 +556,10 @@
    "fields": {
     "apn": "gis_pid",
     "owner": "tax_ownname",
-    "address": ""
+    "address": "",
+    "value": "gis_emv",
+    "valueYear": "tax_assmntyear",
+    "landUse": ""
    },
    "center": [
     47.5004,
@@ -511,7 +580,10 @@
    "fields": {
     "apn": "county_pin",
     "owner": "tax_name",
-    "address": ""
+    "address": "",
+    "value": "",
+    "valueYear": "",
+    "landUse": "useclass1"
    },
    "center": [
     48.8752,
@@ -519,6 +591,8 @@
    ],
    "zoom": 9,
    "placeholder": "Example: 619 4th St NE Baudette MN 56623",
+   "badge": "2021 data",
+   "coverage": "parcel data is a 2021 snapshot, so owners may be out of date",
    "verified": "2026-10-16"
   },
   "lesueur": {
@@ -532,7 +606,10 @@
    "fields": {
     "apn": "PARCEL_NUMBER",
     "owner": "OWNER_NAME_1",
-    "address": ""
+    "address": "",
+    "value": "TOTAL_ESTIMATED_MARKET_VALUE",
+    "valueYear": "",
+    "landUse": "CLASSIFICATION_1"
    },
    "center": [
     44.3697,
@@ -553,7 +630,10 @@
    "fields": {
     "apn": "PARCEL_NUM",
     "owner": "TP_NAME1",
-    "address": ""
+    "address": "",
+    "value": "",
+    "valueYear": "",
+    "landUse": ""
    },
    "center": [
     44.414,
@@ -574,7 +654,10 @@
    "fields": {
     "apn": "Parcel_ID",
     "owner": "TXTNAM",
-    "address": ""
+    "address": "",
+    "value": "TaxTotal",
+    "valueYear": "",
+    "landUse": "Asmtdesc"
    },
    "center": [
     44.413,
@@ -595,7 +678,10 @@
    "fields": {
     "apn": "Parcel_Num",
     "owner": "TAXPAYER_NAME",
-    "address": ""
+    "address": "",
+    "value": "",
+    "valueYear": "",
+    "landUse": ""
    },
    "center": [
     47.3251,
@@ -616,7 +702,10 @@
    "fields": {
     "apn": "PARCELID",
     "owner": "TAXPAYER_NAME",
-    "address": "PROPERTY_ADDRESS"
+    "address": "PROPERTY_ADDRESS",
+    "value": "",
+    "valueYear": "",
+    "landUse": ""
    },
    "center": [
     48.3584,
@@ -637,7 +726,10 @@
    "fields": {
     "apn": "parcel_id",
     "owner": "owner",
-    "address": "address"
+    "address": "address",
+    "value": "",
+    "valueYear": "",
+    "landUse": "land_use_class"
    },
    "center": [
     43.6741,
@@ -645,6 +737,7 @@
    ],
    "zoom": 10,
    "placeholder": "Full street address + city + MN + ZIP (or click the map)",
+   "badge": "partial",
    "coverage": "parcel data covers rural parcels only; Fairmont, Truman and Ceylon are missing",
    "verified": "2026-10-16"
   },
@@ -659,7 +752,10 @@
    "fields": {
     "apn": "county_pin",
     "owner": "tax_name",
-    "address": ""
+    "address": "",
+    "value": "",
+    "valueYear": "",
+    "landUse": "useclass1"
    },
    "center": [
     44.8049,
@@ -681,7 +777,10 @@
    "fields": {
     "apn": "PID",
     "owner": "NAME",
-    "address": ""
+    "address": "",
+    "value": "",
+    "valueYear": "",
+    "landUse": ""
    },
    "center": [
     45.1094,
@@ -703,7 +802,10 @@
    "fields": {
     "apn": "county_pin",
     "owner": "tax_name",
-    "address": ""
+    "address": "",
+    "value": "",
+    "valueYear": "",
+    "landUse": "useclass1"
    },
    "center": [
     45.903,
@@ -724,7 +826,10 @@
    "fields": {
     "apn": "state_pin",
     "owner": "owner_name",
-    "address": ""
+    "address": "",
+    "value": "emv_total",
+    "valueYear": "mkt_year",
+    "landUse": "useclass1"
    },
    "center": [
     43.6742,
@@ -745,7 +850,10 @@
    "fields": {
     "apn": "county_pin",
     "owner": "owner_name",
-    "address": ""
+    "address": "",
+    "value": "",
+    "valueYear": "",
+    "landUse": ""
    },
    "center": [
     44.0222,
@@ -766,7 +874,10 @@
    "fields": {
     "apn": "PIN",
     "owner": "TaxName",
-    "address": "PropAddr1"
+    "address": "PropAddr1",
+    "value": "",
+    "valueYear": "",
+    "landUse": "PropClass"
    },
    "center": [
     43.6746,
@@ -774,6 +885,7 @@
    ],
    "zoom": 10,
    "placeholder": "Example: 1258 Duba St Worthington MN 56187",
+   "badge": "partial",
    "coverage": "parcel data covers the Worthington area only",
    "verified": "2026-10-16"
   },
@@ -788,7 +900,10 @@
    "fields": {
     "apn": "PARCELID",
     "owner": "TAXPAYER_NAME",
-    "address": ""
+    "address": "",
+    "value": "",
+    "valueYear": "",
+    "landUse": ""
    },
    "center": [
     47.3248,
@@ -809,7 +924,10 @@
    "fields": {
     "apn": "PIN",
     "owner": "OWNNAME",
-    "address": ""
+    "address": "",
+    "value": "",
+    "valueYear": "",
+    "landUse": "TPCLS1_DSC"
    },
    "center": [
     46.4123,
@@ -830,7 +948,10 @@
    "fields": {
     "apn": "PARCELNUM",
     "owner": "OWNER_NAME_1",
-    "address": ""
+    "address": "",
+    "value": "",
+    "valueYear": "",
+    "landUse": ""
    },
    "center": [
     48.0544,
@@ -851,7 +972,10 @@
    "fields": {
     "apn": "parcelid",
     "owner": "ownername1",
-    "address": ""
+    "address": "",
+    "value": "",
+    "valueYear": "",
+    "landUse": "class"
    },
    "center": [
     46.0746,
@@ -872,7 +996,10 @@
    "fields": {
     "apn": "PARCEL_NUMBER",
     "owner": "OWNER_NAME",
-    "address": ""
+    "address": "",
+    "value": "EMV_TOTAL",
+    "valueYear": "",
+    "landUse": "CLASSIFICATION_1"
    },
    "center": [
     44.0229,
@@ -893,7 +1020,10 @@
    "fields": {
     "apn": "Parcel_ID",
     "owner": "CurOwnerName",
-    "address": ""
+    "address": "",
+    "value": "",
+    "valueYear": "",
+    "landUse": ""
    },
    "center": [
     47.8364,
@@ -914,7 +1044,10 @@
    "fields": {
     "apn": "PARCEL_NUMBER",
     "owner": "TAXPAYER_NAME",
-    "address": ""
+    "address": "",
+    "value": "EstimatedMarketValue",
+    "valueYear": "",
+    "landUse": "CLASSIFICATIONS"
    },
    "center": [
     45.5861,
@@ -935,7 +1068,10 @@
    "fields": {
     "apn": "county_pin",
     "owner": "tax_name",
-    "address": ""
+    "address": "",
+    "value": "",
+    "valueYear": "",
+    "landUse": ""
    },
    "center": [
     47.8623,
@@ -956,7 +1092,10 @@
    "fields": {
     "apn": "PARCEL_NUMBER",
     "owner": "TAXPAYER_NAME",
-    "address": ""
+    "address": "",
+    "value": "",
+    "valueYear": "",
+    "landUse": "CLASSIFICATION_1"
    },
    "center": [
     44.6742,
@@ -977,7 +1116,10 @@
    "fields": {
     "apn": "COUNTY_PIN",
     "owner": "OWNER_NAME",
-    "address": "SiteAddrFull"
+    "address": "SiteAddrFull",
+    "value": "EMV_TOTAL",
+    "valueYear": "MKT_YEAR",
+    "landUse": "USECLASS1"
    },
    "center": [
     44.37,
@@ -998,7 +1140,10 @@
    "fields": {
     "apn": "PIN",
     "owner": "TaxName",
-    "address": ""
+    "address": "",
+    "value": "",
+    "valueYear": "",
+    "landUse": ""
    },
    "center": [
     48.7693,
@@ -1019,7 +1164,10 @@
    "fields": {
     "apn": "PID",
     "owner": "TAXPAYER_NAME",
-    "address": ""
+    "address": "",
+    "value": "",
+    "valueYear": "",
+    "landUse": "CLASSIFICATIONS"
    },
    "center": [
     44.5869,
@@ -1040,7 +1188,10 @@
    "fields": {
     "apn": "TAXPARCEL",
     "owner": "OWNER",
-    "address": "PROPADDR"
+    "address": "PROPADDR",
+    "value": "REF_MARKET_VALUE",
+    "valueYear": "ASSESSMENT_YEAR",
+    "landUse": "PROPCLASSLONG"
    },
    "center": [
     45.529,
@@ -1061,7 +1212,10 @@
    "fields": {
     "apn": "PIN",
     "owner": "OWNAME",
-    "address": "QRYADDRESS"
+    "address": "QRYADDRESS",
+    "value": "",
+    "valueYear": "",
+    "landUse": "AVCLASDESC1"
    },
    "center": [
     44.0224,
@@ -1083,7 +1237,10 @@
    "fields": {
     "apn": "PIN",
     "owner": "Name",
-    "address": ""
+    "address": "",
+    "value": "",
+    "valueYear": "",
+    "landUse": ""
    },
    "center": [
     45.5861,
@@ -1104,7 +1261,10 @@
    "fields": {
     "apn": "PIN",
     "owner": "OWNAME",
-    "address": ""
+    "address": "",
+    "value": "",
+    "valueYear": "",
+    "landUse": ""
    },
    "center": [
     45.282,
@@ -1126,7 +1286,10 @@
    "fields": {
     "apn": "PARCEL_NUM",
     "owner": "TAXPAYER_N",
-    "address": ""
+    "address": "",
+    "value": "",
+    "valueYear": "",
+    "landUse": ""
    },
    "center": [
     45.8037,
@@ -1134,6 +1297,8 @@
    ],
    "zoom": 10,
    "placeholder": "Example: 1089 2nd Ave N Wheaton MN 56296",
+   "badge": "2019 data",
+   "coverage": "parcel data is from tax year 2019, so owners may be out of date",
    "verified": "2026-10-16"
   },
   "wabasha": {
@@ -1147,7 +1312,10 @@
    "fields": {
     "apn": "county_pin",
     "owner": "owner_name",
-    "address": ""
+    "address": "",
+    "value": "emv_total",
+    "valueYear": "mkt_year",
+    "landUse": "useclass1"
    },
    "center": [
     44.281,
@@ -1168,7 +1336,10 @@
    "fields": {
     "apn": "PARCEL_NUM",
     "owner": "TAXPAYER_NAME",
-    "address": "PHYSICAL_ADDRESS"
+    "address": "PHYSICAL_ADDRESS",
+    "value": "",
+    "valueYear": "",
+    "landUse": ""
    },
    "center": [
     46.5871,
@@ -1189,7 +1360,10 @@
    "fields": {
     "apn": "PARCELID",
     "owner": "TAXPAYER_NAME",
-    "address": ""
+    "address": "",
+    "value": "TOTAL_MARKET_VALUE",
+    "valueYear": "",
+    "landUse": ""
    },
    "center": [
     46.3262,
@@ -1211,7 +1385,10 @@
    "fields": {
     "apn": "PARCEL_NUM",
     "owner": "own1",
-    "address": ""
+    "address": "",
+    "value": "aprtot",
+    "valueYear": "",
+    "landUse": "class"
    },
    "center": [
     44.02,
@@ -1232,7 +1409,10 @@
    "fields": {
     "apn": "PARCEL_NUMBER",
     "owner": "TAXPAYER_NAME",
-    "address": ""
+    "address": "",
+    "value": "",
+    "valueYear": "",
+    "landUse": ""
    },
    "center": [
     44.739,
