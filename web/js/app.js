@@ -116,7 +116,7 @@ const countyConfig = {
   },
   olmsted: {
     label: "Olmsted County",
-    center: [44.02, -92.95],
+    center: [44.01, -92.38],
     zoom: 10,
     placeholder: "Example: 6126 19th St SE Rochester MN 55068",
     propertySearch: {
@@ -146,8 +146,8 @@ const countyConfig = {
   },
   morrison: {
     label: "Morrison County",
-    center: [46.05, -94.65],
-    zoom: 10,
+    center: [46.06, -94.21],
+    zoom: 9,
     placeholder: "Example: 30281 Nature Rd Royalton MN 56373",
     propertySearch: {
       label: "Morrison County Assessor",
@@ -191,8 +191,8 @@ const countyConfig = {
   },
   koochiching: {
     label: "Koochiching County",
-    center: [48.47, -94.47],
-    zoom: 10,
+    center: [48.28, -93.76],
+    zoom: 9,
     placeholder: "Example: 12005 Town Road 129 Baudette MN 56623",
     propertySearch: {
       label: "Koochiching County",
@@ -206,7 +206,7 @@ const countyConfig = {
   },
   beltrami: {
     label: "Beltrami County",
-    center: [47.85, -95.65],
+    center: [47.465, -94.875],
     zoom: 10,
     placeholder: "Example: 8644 Lumberjack Rd NW Puposky MN 56667",
     propertySearch: {
@@ -236,8 +236,8 @@ const countyConfig = {
   },
   washington: {
     label: "Washington County",
-    center: [45.33, -93.1],
-    zoom: 10,
+    center: [45.02, -92.88],
+    zoom: 9,
     placeholder: "Example: 12001 120th St NE Bayport MN 55003",
     propertySearch: {
       label: "Washington County GIS",
