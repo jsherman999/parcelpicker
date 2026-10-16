@@ -135,14 +135,15 @@ Public portal: https://opendata.ramseycountymn.gov/
 | Auth | None |
 | Spatial | accepts `outSR=4326` (verified); spatial intersect works |
 
-⚠️ **Geometry caveat (must be re-checked at implementation time):** attributes
-verify perfectly, but sample parcels for known Rochester locations returned
-geometry at lon ≈ -92.34 instead of ≈ -93.0 (≈0.7° east). Spatial queries are
-self-consistent (an intersect box around a returned geometry finds its
-neighbors), so the adapter will still work end-to-end, but map display and
-census-geocode point-intersects may be offset. Investigate at build time
-(candidate fixes: use the E911 Addresses layer for geocoding, or find the
-county's HARN-referenced parcel service).
+**Geometry: no offset (re-checked 2026-10-16).** An earlier note here claimed
+parcel geometry sat ≈0.7° east of true WGS84, based on PIN `040566` landing at
+lon ≈ -92.34 instead of an "expected ≈ -93.0". That expectation was wrong:
+Rochester is at ≈ -92.46, and `040566` is not on 19th St SE in Rochester. Its
+`SiteStName` `19` is County Rd 19 SE in Pleasant Grove Township ("6126 COUNTY RD
+19 SE", per the county's own E911 Addresses layer 0, whose point lies on the
+parcel). A point intersect at Mayo Clinic (-92.4663, 44.0222) returns the Mayo
+Clinic parcel (PIN `089500`, 100 2nd Ave SW). Map display and point intersects
+are correct.
 
 Verified queries (2026-08-21):
 
@@ -183,8 +184,7 @@ Public portal: https://gweb01.co.olmsted.mn.us/WebApps/OlmstedCountyGISMap/
   "property_search_url": "https://gweb01.co.olmsted.mn.us/WebApps/OlmstedCountyGISMap/",
   "notes": [
     "CUSTOM _get_address_where_exact/_contains REQUIRED (no single street field)",
-    "OwnerName1 format is 'LAST, FIRST' — optional display normalization",
-    "GEOMETRY OFFSET WARNING: sample geometries ~0.7 deg east of expected for Rochester addresses; verify at implementation time"
+    "OwnerName1 format is 'LAST, FIRST' — optional display normalization"
   ]
 }
 ```
@@ -617,6 +617,12 @@ yearly snapshots (`Parcels_2024`, …).
 ---
 
 ## 4. No Public ArcGIS Parcel Endpoint Found (manual follow-up)
+
+> **Update 2026-10-16:** most of the counties below are now supported in the
+> in-browser build through adapter specs from
+> [ErisData](https://github.com/Eriskii/ErisData) (CC-BY-4.0, Eriskii), each
+> live-verified before bundling. See the README's *Counties Supported* section
+> for the current list and for the counties that are still unsupported (and why).
 
 ArcGIS Online search (2026-08-21) found no public, queryable parcel service
 with owner data for these counties. They likely use a vendor parcel viewer

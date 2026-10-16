@@ -184,7 +184,26 @@
       return { status: tr.children[2], detail: tr.children[3] };
     }
 
-    const rowRefs = tests.map((t) => makeRow(rowsEl, t.name, t.type, t.url));
+    let rowRefs = [];
+
+    // Spec-driven counties come from the bundled ErisData specs. The path is
+    // relative to the repo root, so serve the repo root to include them.
+    async function addSpecTests() {
+      try {
+        const res = await fetch("web/mn_parcel_specs.json");
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const bundle = await res.json();
+        for (const spec of Object.values(bundle.counties || {})) {
+          const params = ARCGIS_PARAMS(spec.fields.apn);
+          if (spec.filter) params.set("where", spec.filter);
+          tests.push({ name: `${spec.label} (parcels, ErisData spec)`, type: "ArcGIS",
+            url: `${spec.url}/query`, params, kind: "arcgis" });
+        }
+      } catch (err) {
+        console.warn("Spec counties not loaded (serve the repo root to include them):", err);
+      }
+      rowRefs = tests.map((t) => makeRow(rowsEl, t.name, t.type, t.url));
+    }
 
     function interpretData(test, data) {
       if (test.kind === "arcgis") {
@@ -285,7 +304,7 @@
     runLlmBtn.addEventListener("click", runAllLlm);
 
     // Auto-run the keyless data endpoints on load (single tap for mobile).
-    window.addEventListener("load", () => { runAll(); });
+    window.addEventListener("load", async () => { await addSpecTests(); runAll(); });
   </script>
 </body>
 </html>

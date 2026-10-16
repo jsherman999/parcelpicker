@@ -1,0 +1,1246 @@
+{
+ "attribution": {
+  "source": "ErisData GIS/parcels adapter registry",
+  "author": "Eriskii",
+  "url": "https://github.com/Eriskii/ErisData",
+  "license": "CC-BY-4.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+  "changes": "Subset to the Minnesota counties without a hand-written parcelpicker provider; field names case-corrected and http URLs upgraded to https where needed; partial or mailing-address address mappings blanked; county map center/zoom and example addresses added; every endpoint live-verified on 2026-10-16 (CORS, owner-filled point intersect, adjacency)."
+ },
+ "generated": "2026-10-16",
+ "counties": {
+  "benton": {
+   "id": "benton",
+   "label": "Benton County",
+   "fips": "27009",
+   "adapter": "mn-benton",
+   "publisher": "Benton County GIS (MN)",
+   "url": "https://services.arcgis.com/cHtpFLI4WlqULV8k/arcgis/rest/services/Benton_Co_Data/FeatureServer/0",
+   "filter": "",
+   "fields": {
+    "apn": "TaxPIN",
+    "owner": "TAXPAYER_NAME1",
+    "address": "PROPERTY_ADDRESS"
+   },
+   "center": [
+    45.6917,
+    -94.0563
+   ],
+   "zoom": 10,
+   "placeholder": "Example: 901 1st St S Sauk Rapids MN 56379",
+   "verified": "2026-10-16"
+  },
+  "bigstone": {
+   "id": "bigstone",
+   "label": "Big Stone County",
+   "fips": "27011",
+   "adapter": "mn-big-stone",
+   "publisher": "Big Stone County GIS",
+   "url": "https://services7.arcgis.com/Q8Rg5UEje9Jslmfh/arcgis/rest/services/Tax_Parcel_Viewer_WFL1/FeatureServer/7",
+   "filter": "",
+   "fields": {
+    "apn": "PARCEL_NUMBER",
+    "owner": "TAXPAYER_NAME",
+    "address": ""
+   },
+   "center": [
+    45.3814,
+    -96.4696
+   ],
+   "zoom": 10,
+   "placeholder": "Example: 256 Michigan Ave Ortonville MN 56278",
+   "verified": "2026-10-16"
+  },
+  "carlton": {
+   "id": "carlton",
+   "label": "Carlton County",
+   "fips": "27017",
+   "adapter": "mn-carlton",
+   "publisher": "Carlton County GIS",
+   "url": "https://gis.co.carlton.mn.us/arcgis/rest/services/AGOL/AGO_InternalViewer/MapServer/6",
+   "filter": "",
+   "fields": {
+    "apn": "PARCELID",
+    "owner": "OWNAME",
+    "address": ""
+   },
+   "center": [
+    46.5931,
+    -92.6783
+   ],
+   "zoom": 10,
+   "placeholder": "Example: 124 Kettner Dr Carlton MN 55718",
+   "verified": "2026-10-16"
+  },
+  "cass": {
+   "id": "cass",
+   "label": "Cass County",
+   "fips": "27021",
+   "adapter": "mn-cass",
+   "publisher": "Minnesota Geospatial Commons (opt-in county parcels, Cass County)",
+   "url": "https://enterprise.gisdata.mn.gov/aghost/rest/services/us_mn_state_mngeo/plan_parcels_open/FeatureServer/1",
+   "filter": "co_name = 'Cass'",
+   "addressNote": "spec address st_name not used: street name only (st_name)",
+   "fields": {
+    "apn": "county_pin",
+    "owner": "owner_name",
+    "address": ""
+   },
+   "center": [
+    46.8787,
+    -94.2805
+   ],
+   "zoom": 9,
+   "placeholder": "Example: 1600 Port View Rd Lake Shore MN 56468",
+   "verified": "2026-10-16"
+  },
+  "chippewa": {
+   "id": "chippewa",
+   "label": "Chippewa County",
+   "fips": "27023",
+   "adapter": "mn-chippewa",
+   "publisher": "Minnesota Geospatial Commons / Chippewa County (Open Parcels compilation)",
+   "url": "https://enterprise.gisdata.mn.gov/aghost/rest/services/us_mn_state_mngeo/plan_parcels_open/FeatureServer/1",
+   "filter": "co_code = '27023'",
+   "fields": {
+    "apn": "state_pin",
+    "owner": "owner_name",
+    "address": ""
+   },
+   "center": [
+    44.9516,
+    -95.6404
+   ],
+   "zoom": 10,
+   "placeholder": "Example: 600 N 9th St Montevideo MN 56265",
+   "verified": "2026-10-16"
+  },
+  "clay": {
+   "id": "clay",
+   "label": "Clay County",
+   "fips": "27027",
+   "adapter": "mn-clay",
+   "publisher": "Clay County GIS (Minnesota)",
+   "url": "https://gis23.claycountymn.gov/arcgis/rest/services/OpenData/Tax_Parcels_with_Tax_Data_in_State_Standard/FeatureServer/0",
+   "filter": "",
+   "fields": {
+    "apn": "PIN",
+    "owner": "TAX_NAME",
+    "address": "PropertyAddress"
+   },
+   "center": [
+    46.8901,
+    -96.5063
+   ],
+   "zoom": 9,
+   "placeholder": "Example: 835 5th Ave NE Dilworth MN 56529",
+   "verified": "2026-10-16"
+  },
+  "clearwater": {
+   "id": "clearwater",
+   "label": "Clearwater County",
+   "fips": "27029",
+   "adapter": "mn-clearwater",
+   "publisher": "Minnesota Geospatial Commons (Parcels Compiled from Opt-In Open Data Counties), Clearwater County subset",
+   "url": "https://enterprise.gisdata.mn.gov/aghost/rest/services/us_mn_state_mngeo/plan_parcels_open/FeatureServer/1",
+   "filter": "co_name = 'Clearwater'",
+   "addressNote": "spec address st_name not used: street name only (st_name)",
+   "fields": {
+    "apn": "county_pin",
+    "owner": "tax_name",
+    "address": ""
+   },
+   "center": [
+    47.5861,
+    -95.376
+   ],
+   "zoom": 9,
+   "placeholder": "Example: 251 Sand Lake Ave NW Bagley MN 56621",
+   "verified": "2026-10-16"
+  },
+  "cook": {
+   "id": "cook",
+   "label": "Cook County",
+   "fips": "27031",
+   "adapter": "mn-cook",
+   "publisher": "Cook County MN GIS",
+   "url": "https://services.arcgis.com/L3KwVADPEG6iD24f/arcgis/rest/services/Tax_Parcel_Layer_(Current)/FeatureServer/0",
+   "filter": "",
+   "fields": {
+    "apn": "COUNTY_PIN",
+    "owner": "OWNER_NAME",
+    "address": ""
+   },
+   "center": [
+    47.7451,
+    -90.2577
+   ],
+   "zoom": 9,
+   "placeholder": "Example: 887 5th Ave W Grand Marais MN 55604",
+   "verified": "2026-10-16"
+  },
+  "cottonwood": {
+   "id": "cottonwood",
+   "label": "Cottonwood County",
+   "fips": "27033",
+   "adapter": "mn-cottonwood",
+   "publisher": "Cottonwood County GIS",
+   "url": "https://services6.arcgis.com/HWNeJO1BX8XvS0O8/arcgis/rest/services/CottCoParcels/FeatureServer/0",
+   "filter": "",
+   "fields": {
+    "apn": "PIN",
+    "owner": "deedhold",
+    "address": ""
+   },
+   "center": [
+    44.0219,
+    -95.161
+   ],
+   "zoom": 10,
+   "placeholder": "Example: 627 16th St Windom MN 56101",
+   "verified": "2026-10-16"
+  },
+  "crowwing": {
+   "id": "crowwing",
+   "label": "Crow Wing County",
+   "fips": "27035",
+   "adapter": "mn-crow-wing",
+   "publisher": "Crow Wing County GIS",
+   "url": "https://gis.crowwing.us/cwc_external_main/rest/services/Public_pro/MapServer/0",
+   "filter": "",
+   "fields": {
+    "apn": "PIN",
+    "owner": "OWNAME",
+    "address": ""
+   },
+   "center": [
+    46.4811,
+    -94.0854
+   ],
+   "zoom": 9,
+   "placeholder": "Example: 14503 Pine Bay Trl Crosslake MN 56442",
+   "verified": "2026-10-16"
+  },
+  "dodge": {
+   "id": "dodge",
+   "label": "Dodge County",
+   "fips": "27039",
+   "adapter": "mn-dodge",
+   "publisher": "Dodge County GIS (hosted by Goodhue County)",
+   "url": "https://publicmaps.co.goodhue.mn.us/arcgis/rest/services/DodgeCounty/Dodge_Parcels/MapServer/1",
+   "filter": "",
+   "fields": {
+    "apn": "PIN",
+    "owner": "C0NAME1P",
+    "address": "FULL_ADD"
+   },
+   "center": [
+    44.0226,
+    -92.8621
+   ],
+   "zoom": 10,
+   "placeholder": "Example: 401 7th St NE Kasson MN 55944",
+   "verified": "2026-10-16"
+  },
+  "douglas": {
+   "id": "douglas",
+   "label": "Douglas County",
+   "fips": "27041",
+   "adapter": "mn-douglas",
+   "publisher": "Douglas County MN (DCPW)",
+   "url": "https://dc-web-2.co.douglas.mn.us/server/rest/services/PublicMaps/Public_GIS_Map/MapServer/53",
+   "filter": "",
+   "fields": {
+    "apn": "PIN",
+    "owner": "TXOTXT_NAM",
+    "address": "TXPADR1"
+   },
+   "center": [
+    45.9335,
+    -95.4543
+   ],
+   "zoom": 10,
+   "placeholder": "Example: 1321 Broadway St Alexandria MN 56308",
+   "verified": "2026-10-16"
+  },
+  "faribault": {
+   "id": "faribault",
+   "label": "Faribault County",
+   "fips": "27043",
+   "adapter": "mn-faribault",
+   "publisher": "Faribault County GIS (via GDITAdmin ArcGIS Online)",
+   "url": "https://services2.arcgis.com/fxB2C8mQfjMb1848/arcgis/rest/services/TaxParcelsGAC/FeatureServer/0",
+   "filter": "",
+   "fields": {
+    "apn": "COUNTY_PIN",
+    "owner": "TAX_NAME",
+    "address": ""
+   },
+   "center": [
+    43.6739,
+    -93.9481
+   ],
+   "zoom": 10,
+   "placeholder": "Example: 191 4th Ave SW Wells MN 56097",
+   "verified": "2026-10-16"
+  },
+  "freeborn": {
+   "id": "freeborn",
+   "label": "Freeborn County",
+   "fips": "27047",
+   "adapter": "mn-freeborn",
+   "publisher": "Freeborn County GIS",
+   "url": "https://services3.arcgis.com/K2EK2rX46vJK2a3W/arcgis/rest/services/Freeborn_County_Parcel_Info/FeatureServer/0",
+   "filter": "",
+   "addressNote": "spec address ADDRESS not used: street name and type only, no house number",
+   "fields": {
+    "apn": "PIN",
+    "owner": "DEEDHOLDER",
+    "address": ""
+   },
+   "center": [
+    43.6741,
+    -93.3489
+   ],
+   "zoom": 10,
+   "placeholder": "Example: 553 Alice Ave Albert Lea MN 56007",
+   "verified": "2026-10-16"
+  },
+  "goodhue": {
+   "id": "goodhue",
+   "label": "Goodhue County",
+   "fips": "27049",
+   "adapter": "mn-goodhue",
+   "publisher": "Goodhue County GIS",
+   "url": "https://publicmaps.co.goodhue.mn.us/arcgis/rest/services/GoodhueCounty/ParcelsAGOL/MapServer/0",
+   "filter": "",
+   "fields": {
+    "apn": "PIN",
+    "owner": "C0NAME1P",
+    "address": "FULLSTREET"
+   },
+   "center": [
+    44.4546,
+    -92.6416
+   ],
+   "zoom": 9,
+   "placeholder": "Example: 4970 Pepin Ave Red Wing MN 55066",
+   "verified": "2026-10-16"
+  },
+  "grant": {
+   "id": "grant",
+   "label": "Grant County",
+   "fips": "27051",
+   "adapter": "mn-grant",
+   "publisher": "Grant County, Minnesota (GIS / Assessor)",
+   "url": "https://gis.co.grant.mn.us/arcgis/rest/services/Assessor/TaxParcels_public/FeatureServer/1",
+   "filter": "",
+   "addressNote": "spec address TAXPAYER_ADDRESS not used: taxpayer mailing address, not the site address",
+   "fields": {
+    "apn": "PARCELID",
+    "owner": "TAXPAYER_NAME",
+    "address": ""
+   },
+   "center": [
+    45.934,
+    -96.0123
+   ],
+   "zoom": 10,
+   "placeholder": "Example: 304 3rd St N Hoffman MN 56339",
+   "verified": "2026-10-16"
+  },
+  "hubbard": {
+   "id": "hubbard",
+   "label": "Hubbard County",
+   "fips": "27057",
+   "adapter": "mn-hubbard",
+   "publisher": "Hubbard County GIS",
+   "url": "https://gis.co.hubbard.mn.us/arcgis/rest/services/OpenData/Hubbard_County_Tax_Parcels/MapServer/0",
+   "filter": "",
+   "addressNote": "spec address PIADRLN1 not used: taxpayer mailing address (PI*), not the site address (PA*)",
+   "fields": {
+    "apn": "hubbgis_GIS_Parcels_PIN",
+    "owner": "PINAME1",
+    "address": ""
+   },
+   "center": [
+    47.1082,
+    -94.9208
+   ],
+   "zoom": 9,
+   "placeholder": "Example: 901 Pleasant Ave S Park Rapids MN 56470",
+   "verified": "2026-10-16"
+  },
+  "isanti": {
+   "id": "isanti",
+   "label": "Isanti County",
+   "fips": "27059",
+   "adapter": "mn-isanti",
+   "publisher": "Isanti County GIS",
+   "url": "https://gis.co.isanti.mn.us/arcgis/rest/services/LandRecords/TaxParcels_Public/FeatureServer/0",
+   "filter": "",
+   "addressNote": "spec address PSTLADDRESS not used: owner mailing address, not the site address",
+   "fields": {
+    "apn": "PARCELID",
+    "owner": "OWNERNME1",
+    "address": ""
+   },
+   "center": [
+    45.573,
+    -93.2666
+   ],
+   "zoom": 10,
+   "placeholder": "Example: 1012 Cypress St S Cambridge MN 55008",
+   "verified": "2026-10-16"
+  },
+  "itasca": {
+   "id": "itasca",
+   "label": "Itasca County",
+   "fips": "27061",
+   "adapter": "mn-itasca",
+   "publisher": "Itasca County GIS",
+   "url": "https://maps.co.itasca.mn.us/arcgis/rest/services/Search_Rescue/Itasca_SAR_Layers/MapServer/2",
+   "filter": "",
+   "addressNote": "spec address ADDR_1 not used: taxpayer mailing address, not the site address",
+   "fields": {
+    "apn": "PRCL_NBR",
+    "owner": "TAO_NAME",
+    "address": ""
+   },
+   "center": [
+    47.4621,
+    -93.7376
+   ],
+   "zoom": 9,
+   "placeholder": "Example: 650 NW 3rd Ave Grand Rapids MN 55744",
+   "verified": "2026-10-16"
+  },
+  "jackson": {
+   "id": "jackson",
+   "label": "Jackson County",
+   "fips": "27063",
+   "adapter": "mn-jackson",
+   "publisher": "Minnesota MnGeo (compiled from Jackson County opt-in parcel data)",
+   "url": "https://enterprise.gisdata.mn.gov/aghost/rest/services/us_mn_state_mngeo/plan_parcels_open/FeatureServer/1",
+   "filter": "co_name = 'Jackson'",
+   "fields": {
+    "apn": "county_pin",
+    "owner": "owner_name",
+    "address": ""
+   },
+   "center": [
+    43.6744,
+    -95.1544
+   ],
+   "zoom": 10,
+   "placeholder": "Example: 477 Riverside Dr Jackson MN 56143",
+   "verified": "2026-10-16"
+  },
+  "kanabec": {
+   "id": "kanabec",
+   "label": "Kanabec County",
+   "fips": "27065",
+   "adapter": "mn-kanabec",
+   "publisher": "Kanabec County GIS (Schneider Corp Beacon WFS)",
+   "url": "https://wfs.schneidercorp.com/arcgis/rest/services/KanabecCountyMN_WFS/MapServer/0",
+   "filter": "",
+   "fields": {
+    "apn": "PIN",
+    "owner": "OWNER_ORIG",
+    "address": "SiteAddress"
+   },
+   "center": [
+    45.945,
+    -93.286
+   ],
+   "zoom": 10,
+   "placeholder": "Example: 362 McLean St Mora MN 55051",
+   "verified": "2026-10-16"
+  },
+  "lacquiparle": {
+   "id": "lacquiparle",
+   "label": "Lac qui Parle County",
+   "fips": "27073",
+   "adapter": "mn-lac-qui-parle",
+   "publisher": "Lac qui Parle County GIS (GDITAdmin)",
+   "url": "https://services5.arcgis.com/D5NH3zpCRhpMEHEy/arcgis/rest/services/Tax_Parcels/FeatureServer/0",
+   "filter": "",
+   "fields": {
+    "apn": "PIN",
+    "owner": "OWNERNAME",
+    "address": "PHYADD"
+   },
+   "center": [
+    45.0374,
+    -96.0948
+   ],
+   "zoom": 10,
+   "placeholder": "Example: 559 3rd St Dawson MN 56232",
+   "verified": "2026-10-16"
+  },
+  "lake": {
+   "id": "lake",
+   "label": "Lake County",
+   "fips": "27075",
+   "adapter": "mn-lake",
+   "publisher": "Lake County, Minnesota (via MN Geospatial Commons)",
+   "url": "https://enterprise.gisdata.mn.gov/aghost/rest/services/us_mn_co_lake/plan_tax_parcels/FeatureServer/0",
+   "filter": "",
+   "addressNote": "spec address tax_taxadr1 not used: taxpayer mailing address, not the site address",
+   "fields": {
+    "apn": "gis_pid",
+    "owner": "tax_ownname",
+    "address": ""
+   },
+   "center": [
+    47.5004,
+    -91.2977
+   ],
+   "zoom": 9,
+   "placeholder": "Example: 14 Edwards Dr Silver Bay MN 55614",
+   "verified": "2026-10-16"
+  },
+  "lakeofthewoods": {
+   "id": "lakeofthewoods",
+   "label": "Lake of the Woods County",
+   "fips": "27077",
+   "adapter": "mn-lake-of-the-woods",
+   "publisher": "Lake of the Woods County (via UMN hosted layer)",
+   "url": "https://services.arcgis.com/8df8p0NlLFEShl0r/arcgis/rest/services/LOTW_and_ROSEAU_PARCELS_WFL1/FeatureServer/12",
+   "filter": "",
+   "fields": {
+    "apn": "county_pin",
+    "owner": "tax_name",
+    "address": ""
+   },
+   "center": [
+    48.8752,
+    -94.8857
+   ],
+   "zoom": 9,
+   "placeholder": "Example: 619 4th St NE Baudette MN 56623",
+   "verified": "2026-10-16"
+  },
+  "lesueur": {
+   "id": "lesueur",
+   "label": "Le Sueur County",
+   "fips": "27079",
+   "adapter": "mn-le-sueur",
+   "publisher": "Le Sueur County GIS",
+   "url": "https://gis.co.le-sueur.mn.us/server/rest/services/Cadastral/Parcels/MapServer/5",
+   "filter": "",
+   "fields": {
+    "apn": "PARCEL_NUMBER",
+    "owner": "OWNER_NAME_1",
+    "address": ""
+   },
+   "center": [
+    44.3697,
+    -93.7748
+   ],
+   "zoom": 10,
+   "placeholder": "Example: 214 Peck St Le Sueur MN 56058",
+   "verified": "2026-10-16"
+  },
+  "lincoln": {
+   "id": "lincoln",
+   "label": "Lincoln County",
+   "fips": "27081",
+   "adapter": "mn-lincoln",
+   "publisher": "Lincoln County, MN (GIS via lcmn.maps.arcgis.com web map)",
+   "url": "https://services2.arcgis.com/4bzoopFK3ECP25Sn/arcgis/rest/services/Parcels/FeatureServer/0",
+   "filter": "",
+   "fields": {
+    "apn": "PARCEL_NUM",
+    "owner": "TP_NAME1",
+    "address": ""
+   },
+   "center": [
+    44.414,
+    -96.2657
+   ],
+   "zoom": 10,
+   "placeholder": "Example: 627 Mork St Lake Benton MN 56149",
+   "verified": "2026-10-16"
+  },
+  "lyon": {
+   "id": "lyon",
+   "label": "Lyon County",
+   "fips": "27083",
+   "adapter": "mn-lyon",
+   "publisher": "Lyon County GIS",
+   "url": "https://services.arcgis.com/WSCKzjfnubMgUOk8/arcgis/rest/services/Parcels/FeatureServer/0",
+   "filter": "",
+   "fields": {
+    "apn": "Parcel_ID",
+    "owner": "TXTNAM",
+    "address": ""
+   },
+   "center": [
+    44.413,
+    -95.8432
+   ],
+   "zoom": 10,
+   "placeholder": "Example: 348 8th St Tracy MN 56175",
+   "verified": "2026-10-16"
+  },
+  "mahnomen": {
+   "id": "mahnomen",
+   "label": "Mahnomen County",
+   "fips": "27087",
+   "adapter": "mn-mahnomen",
+   "publisher": "Mahnomen County GIS",
+   "url": "https://services8.arcgis.com/eORKbx5CWReJmkoa/arcgis/rest/services/TaxParcels/FeatureServer/0",
+   "filter": "",
+   "fields": {
+    "apn": "Parcel_Num",
+    "owner": "TAXPAYER_NAME",
+    "address": ""
+   },
+   "center": [
+    47.3251,
+    -95.8093
+   ],
+   "zoom": 10,
+   "placeholder": "Example: 247 N Railway St Mahnomen MN 56557",
+   "verified": "2026-10-16"
+  },
+  "marshall": {
+   "id": "marshall",
+   "label": "Marshall County",
+   "fips": "27089",
+   "adapter": "mn-marshall",
+   "publisher": "Marshall County GIS (MN)",
+   "url": "https://gis.co.marshall.mn.us/server/rest/services/Marshall/MarshallCountyMN_LandRecords/MapServer/8",
+   "filter": "",
+   "fields": {
+    "apn": "PARCELID",
+    "owner": "TAXPAYER_NAME",
+    "address": "PROPERTY_ADDRESS"
+   },
+   "center": [
+    48.3584,
+    -96.3783
+   ],
+   "zoom": 9,
+   "placeholder": "Example: 998 Washington Ave Argyle MN 56713",
+   "verified": "2026-10-16"
+  },
+  "martin": {
+   "id": "martin",
+   "label": "Martin County",
+   "fips": "27091",
+   "adapter": "mn-martin",
+   "publisher": "Martin County MN (parcel layer hosted on ArcGIS Online)",
+   "url": "https://services.arcgis.com/04HiymDgLlsbhaV4/arcgis/rest/services/POM_OH1_JUNE_2026_GIS_Station_Online_WFL1/FeatureServer/48",
+   "filter": "",
+   "fields": {
+    "apn": "parcel_id",
+    "owner": "owner",
+    "address": "address"
+   },
+   "center": [
+    43.6741,
+    -94.5508
+   ],
+   "zoom": 10,
+   "placeholder": "Full street address + city + MN + ZIP (or click the map)",
+   "coverage": "parcel data covers rural parcels only; Fairmont, Truman and Ceylon are missing",
+   "verified": "2026-10-16"
+  },
+  "mcleod": {
+   "id": "mcleod",
+   "label": "McLeod County",
+   "fips": "27085",
+   "adapter": "mn-mcleod",
+   "publisher": "Minnesota Geospatial Commons (McLeod County parcels, opt-in open data)",
+   "url": "https://enterprise.gisdata.mn.gov/aghost/rest/services/us_mn_state_mngeo/plan_parcels_open/FeatureServer/1",
+   "filter": "co_name = 'McLeod'",
+   "fields": {
+    "apn": "county_pin",
+    "owner": "tax_name",
+    "address": ""
+   },
+   "center": [
+    44.8049,
+    -94.256
+   ],
+   "zoom": 10,
+   "placeholder": "Example: 742 Harrington St SW Hutchinson MN 55350",
+   "verified": "2026-10-16"
+  },
+  "meeker": {
+   "id": "meeker",
+   "label": "Meeker County",
+   "fips": "27093",
+   "adapter": "mn-meeker",
+   "publisher": "Meeker County GIS",
+   "url": "https://services2.arcgis.com/pHb2Lre5eSy5plfE/arcgis/rest/services/Parcels_hub/FeatureServer/0",
+   "filter": "",
+   "addressNote": "spec address STREET not used: street name only",
+   "fields": {
+    "apn": "PID",
+    "owner": "NAME",
+    "address": ""
+   },
+   "center": [
+    45.1094,
+    -94.5097
+   ],
+   "zoom": 10,
+   "placeholder": "Example: 450 S Armstrong Ave Litchfield MN 55355",
+   "verified": "2026-10-16"
+  },
+  "millelacs": {
+   "id": "millelacs",
+   "label": "Mille Lacs County",
+   "fips": "27095",
+   "adapter": "mn-mille-lacs",
+   "publisher": "Minnesota Geospatial Commons (Plan Parcels Open, county-contributed), Mille Lacs County",
+   "url": "https://enterprise.gisdata.mn.gov/aghost/rest/services/us_mn_state_mngeo/plan_parcels_open/FeatureServer/1",
+   "filter": "co_name = 'Mille Lacs'",
+   "addressNote": "spec address tax_add_l1 not used: taxpayer mailing address, not the site address",
+   "fields": {
+    "apn": "county_pin",
+    "owner": "tax_name",
+    "address": ""
+   },
+   "center": [
+    45.903,
+    -93.6203
+   ],
+   "zoom": 9,
+   "placeholder": "Example: 199 10th Ave S Princeton MN 55371",
+   "verified": "2026-10-16"
+  },
+  "mower": {
+   "id": "mower",
+   "label": "Mower County",
+   "fips": "27099",
+   "adapter": "mn-mower",
+   "publisher": "Minnesota State Geospatial Commons (Opt-In Open Data Counties) - Mower County parcels",
+   "url": "https://enterprise.gisdata.mn.gov/aghost/rest/services/us_mn_state_mngeo/plan_parcels_open/FeatureServer/1",
+   "filter": "co_code = '27099'",
+   "fields": {
+    "apn": "state_pin",
+    "owner": "owner_name",
+    "address": ""
+   },
+   "center": [
+    43.6742,
+    -92.7492
+   ],
+   "zoom": 10,
+   "placeholder": "Example: 700 1st Dr NW Austin MN 55912",
+   "verified": "2026-10-16"
+  },
+  "murray": {
+   "id": "murray",
+   "label": "Murray County",
+   "fips": "27101",
+   "adapter": "mn-murray",
+   "publisher": "Minnesota Geospatial Commons (Murray County parcels, compiled from opt-in counties)",
+   "url": "https://enterprise.gisdata.mn.gov/aghost/rest/services/us_mn_state_mngeo/plan_parcels_open/MapServer/1",
+   "filter": "co_name = 'Murray'",
+   "fields": {
+    "apn": "county_pin",
+    "owner": "owner_name",
+    "address": ""
+   },
+   "center": [
+    44.0222,
+    -95.7635
+   ],
+   "zoom": 10,
+   "placeholder": "Example: 2323 Front St Slayton MN 56172",
+   "verified": "2026-10-16"
+  },
+  "nobles": {
+   "id": "nobles",
+   "label": "Nobles County",
+   "fips": "27105",
+   "adapter": "mn-nobles",
+   "publisher": "Nobles County GIS",
+   "url": "https://services5.arcgis.com/3Ww0xxsxao12Dntv/arcgis/rest/services/Parcels_PublicView/FeatureServer/0",
+   "filter": "",
+   "fields": {
+    "apn": "PIN",
+    "owner": "TaxName",
+    "address": "PropAddr1"
+   },
+   "center": [
+    43.6746,
+    -95.7526
+   ],
+   "zoom": 10,
+   "placeholder": "Example: 1258 Duba St Worthington MN 56187",
+   "coverage": "parcel data covers the Worthington area only",
+   "verified": "2026-10-16"
+  },
+  "norman": {
+   "id": "norman",
+   "label": "Norman County",
+   "fips": "27107",
+   "adapter": "mn-norman",
+   "publisher": "Norman County GIS",
+   "url": "https://gis.co.norman.mn.us/server/rest/services/Norman/Norman_Internal_LINK/MapServer/26",
+   "filter": "",
+   "fields": {
+    "apn": "PARCELID",
+    "owner": "TAXPAYER_NAME",
+    "address": ""
+   },
+   "center": [
+    47.3248,
+    -96.4694
+   ],
+   "zoom": 10,
+   "placeholder": "Example: 231 Pleasant Ave SW Twin Valley MN 56584",
+   "verified": "2026-10-16"
+  },
+  "ottertail": {
+   "id": "ottertail",
+   "label": "Otter Tail County",
+   "fips": "27111",
+   "adapter": "mn-otter-tail",
+   "publisher": "Otter Tail County GIS",
+   "url": "https://web2.co.ottertail.mn.us/arcgis/rest/services/LandInformation/LandlgimH/MapServer/25",
+   "filter": "",
+   "fields": {
+    "apn": "PIN",
+    "owner": "OWNNAME",
+    "address": ""
+   },
+   "center": [
+    46.4123,
+    -95.7135
+   ],
+   "zoom": 9,
+   "placeholder": "Example: 324 N Mill St Fergus Falls MN 56537",
+   "verified": "2026-10-16"
+  },
+  "pennington": {
+   "id": "pennington",
+   "label": "Pennington County",
+   "fips": "27113",
+   "adapter": "mn-pennington",
+   "publisher": "Pennington County GIS (Minnesota)",
+   "url": "https://gismap.co.pennington.mn.us/arcgis/rest/services/Pennington/ProPhoenix/MapServer/2",
+   "filter": "",
+   "fields": {
+    "apn": "PARCELNUM",
+    "owner": "OWNER_NAME_1",
+    "address": ""
+   },
+   "center": [
+    48.0544,
+    -96.0415
+   ],
+   "zoom": 9,
+   "placeholder": "Example: 155 Main St St. Hilaire MN 56754",
+   "verified": "2026-10-16"
+  },
+  "pine": {
+   "id": "pine",
+   "label": "Pine County",
+   "fips": "27115",
+   "adapter": "mn-pine",
+   "publisher": "Pine County GIS",
+   "url": "https://gis.co.pine.mn.us/server/rest/services/Hosted/Parcel_Layer/FeatureServer/0",
+   "filter": "",
+   "fields": {
+    "apn": "parcelid",
+    "owner": "ownername1",
+    "address": ""
+   },
+   "center": [
+    46.0746,
+    -92.7179
+   ],
+   "zoom": 9,
+   "placeholder": "Example: 299 4th St Sandstone MN 55072",
+   "verified": "2026-10-16"
+  },
+  "pipestone": {
+   "id": "pipestone",
+   "label": "Pipestone County",
+   "fips": "27117",
+   "adapter": "mn-pipestone",
+   "publisher": "Pipestone County, MN (GIS / Assessor)",
+   "url": "https://gis.pcmn.us/arcgis/rest/services/AssessmentInformation/TaxParcels/MapServer/0",
+   "filter": "",
+   "fields": {
+    "apn": "PARCEL_NUMBER",
+    "owner": "OWNER_NAME",
+    "address": ""
+   },
+   "center": [
+    44.0229,
+    -96.2584
+   ],
+   "zoom": 10,
+   "placeholder": "Example: 1364 71st St Hatfield MN 56164",
+   "verified": "2026-10-16"
+  },
+  "polk": {
+   "id": "polk",
+   "label": "Polk County",
+   "fips": "27119",
+   "adapter": "mn-polk",
+   "publisher": "Polk County GIS (MN)",
+   "url": "https://gis.co.polk.mn.us/arcgis/rest/services/Assessor/TaxParcels/FeatureServer/0",
+   "filter": "",
+   "fields": {
+    "apn": "Parcel_ID",
+    "owner": "CurOwnerName",
+    "address": ""
+   },
+   "center": [
+    47.8364,
+    -96.3504
+   ],
+   "zoom": 9,
+   "placeholder": "Example: 464 4th Ave NE East Grand Forks MN 56721",
+   "verified": "2026-10-16"
+  },
+  "pope": {
+   "id": "pope",
+   "label": "Pope County",
+   "fips": "27121",
+   "adapter": "mn-pope",
+   "publisher": "Pope County GIS",
+   "url": "https://gis.popecountymn.gov/arcgis/rest/services/Pictometry/Pictometry_DataLayers/MapServer/10",
+   "filter": "",
+   "fields": {
+    "apn": "PARCEL_NUMBER",
+    "owner": "TAXPAYER_NAME",
+    "address": ""
+   },
+   "center": [
+    45.5861,
+    -95.445
+   ],
+   "zoom": 10,
+   "placeholder": "Example: 174 W 2nd St Starbuck MN 56381",
+   "verified": "2026-10-16"
+  },
+  "redlake": {
+   "id": "redlake",
+   "label": "Red Lake County",
+   "fips": "27125",
+   "adapter": "mn-red-lake",
+   "publisher": "Minnesota Geospatial Commons (Plan Parcels Open, Red Lake County contributor)",
+   "url": "https://enterprise.gisdata.mn.gov/aghost/rest/services/us_mn_state_mngeo/plan_parcels_open/FeatureServer/1",
+   "filter": "co_code = '27125'",
+   "fields": {
+    "apn": "county_pin",
+    "owner": "tax_name",
+    "address": ""
+   },
+   "center": [
+    47.8623,
+    -96.0958
+   ],
+   "zoom": 10,
+   "placeholder": "Example: 1317 Minnesota St N Plummer MN 56748",
+   "verified": "2026-10-16"
+  },
+  "renville": {
+   "id": "renville",
+   "label": "Renville County",
+   "fips": "27129",
+   "adapter": "mn-renville",
+   "publisher": "Renville County GIS",
+   "url": "https://gis.renvillecountymn.gov/arcgis/rest/services/EagleViewOnline/MapServer/15",
+   "filter": "",
+   "fields": {
+    "apn": "PARCEL_NUMBER",
+    "owner": "TAXPAYER_NAME",
+    "address": ""
+   },
+   "center": [
+    44.6742,
+    -94.9903
+   ],
+   "zoom": 9,
+   "placeholder": "Example: 1413 W Lincoln Ave Olivia MN 56277",
+   "verified": "2026-10-16"
+  },
+  "rice": {
+   "id": "rice",
+   "label": "Rice County",
+   "fips": "27131",
+   "adapter": "mn-rice",
+   "publisher": "Rice County GIS",
+   "url": "https://asr-arcgis01.ricecountymn.gov/arcgis/rest/services/Maps/TaxParcels/MapServer/1",
+   "filter": "",
+   "fields": {
+    "apn": "COUNTY_PIN",
+    "owner": "OWNER_NAME",
+    "address": "SiteAddrFull"
+   },
+   "center": [
+    44.37,
+    -93.2825
+   ],
+   "zoom": 10,
+   "placeholder": "Example: 930 4th Ave NW Faribault MN 55021",
+   "verified": "2026-10-16"
+  },
+  "roseau": {
+   "id": "roseau",
+   "label": "Roseau County",
+   "fips": "27135",
+   "adapter": "mn-roseau",
+   "publisher": "Roseau County GIS",
+   "url": "https://gis.co.roseau.mn.us/arcgis/rest/services/TaxParcels/FeatureServer/0",
+   "filter": "",
+   "fields": {
+    "apn": "PIN",
+    "owner": "TaxName",
+    "address": ""
+   },
+   "center": [
+    48.7693,
+    -95.7476
+   ],
+   "zoom": 9,
+   "placeholder": "Example: 286 Main Ave S Roseau MN 56751",
+   "verified": "2026-10-16"
+  },
+  "sibley": {
+   "id": "sibley",
+   "label": "Sibley County",
+   "fips": "27143",
+   "adapter": "mn-sibley",
+   "publisher": "Sibley County GIS",
+   "url": "https://gis.sibleycounty.gov/arcgis/rest/services/Land_Information/RecordedDocParcels/FeatureServer/0",
+   "filter": "",
+   "fields": {
+    "apn": "PID",
+    "owner": "TAXPAYER_NAME",
+    "address": ""
+   },
+   "center": [
+    44.5869,
+    -94.1966
+   ],
+   "zoom": 10,
+   "placeholder": "Example: 500 3rd St E Gaylord MN 55334",
+   "verified": "2026-10-16"
+  },
+  "stearns": {
+   "id": "stearns",
+   "label": "Stearns County",
+   "fips": "27145",
+   "adapter": "mn-stearns",
+   "publisher": "Stearns County GIS",
+   "url": "https://gis.co.stearns.mn.us/arcgis/rest/services/Vendor/Parcels/MapServer/0",
+   "filter": "",
+   "fields": {
+    "apn": "TAXPARCEL",
+    "owner": "OWNER",
+    "address": "PROPADDR"
+   },
+   "center": [
+    45.529,
+    -94.5939
+   ],
+   "zoom": 9,
+   "placeholder": "Example: 1598 Katrina Ct St. Cloud MN 56301",
+   "verified": "2026-10-16"
+  },
+  "steele": {
+   "id": "steele",
+   "label": "Steele County",
+   "fips": "27147",
+   "adapter": "mn-steele",
+   "publisher": "Steele County GIS",
+   "url": "https://gis.steele.mn/server/rest/services/gcportal_us_mn_co_steele/Tax_Parcels/MapServer/0",
+   "filter": "",
+   "fields": {
+    "apn": "PIN",
+    "owner": "OWNAME",
+    "address": "QRYADDRESS"
+   },
+   "center": [
+    44.0224,
+    -93.2261
+   ],
+   "zoom": 10,
+   "placeholder": "Example: 123 2nd St NW Blooming Prairie MN 55917",
+   "verified": "2026-10-16"
+  },
+  "stevens": {
+   "id": "stevens",
+   "label": "Stevens County",
+   "fips": "27149",
+   "adapter": "mn-stevens",
+   "publisher": "Stevens County GIS",
+   "url": "https://services2.arcgis.com/7iPhaYyq6PkRoVhV/arcgis/rest/services/July_2026_Parcels/FeatureServer/0",
+   "filter": "",
+   "addressNote": "spec address Address not used: taxpayer mailing address (PO boxes), not the site address",
+   "fields": {
+    "apn": "PIN",
+    "owner": "Name",
+    "address": ""
+   },
+   "center": [
+    45.5861,
+    -96.0007
+   ],
+   "zoom": 10,
+   "placeholder": "Example: 336 South St Morris MN 56267",
+   "verified": "2026-10-16"
+  },
+  "swift": {
+   "id": "swift",
+   "label": "Swift County",
+   "fips": "27151",
+   "adapter": "mn-swift",
+   "publisher": "Swift County GIS",
+   "url": "https://services3.arcgis.com/D3VRNSq5Pf3sYZAp/arcgis/rest/services/Swift_Parcels/FeatureServer/0",
+   "filter": "",
+   "fields": {
+    "apn": "PIN",
+    "owner": "OWNAME",
+    "address": ""
+   },
+   "center": [
+    45.282,
+    -95.6824
+   ],
+   "zoom": 10,
+   "placeholder": "Example: 351 16th St S Benson MN 56215",
+   "verified": "2026-10-16"
+  },
+  "traverse": {
+   "id": "traverse",
+   "label": "Traverse County",
+   "fips": "27155",
+   "adapter": "mn-traverse",
+   "publisher": "Traverse County GIS",
+   "url": "https://services.arcgis.com/unxYrwb3eK5uevNZ/arcgis/rest/services/Traverse_County_Explore_Layer/FeatureServer/2",
+   "filter": "",
+   "addressNote": "spec address TAXPAYER_1 not used: taxpayer mailing address, not the site address",
+   "fields": {
+    "apn": "PARCEL_NUM",
+    "owner": "TAXPAYER_N",
+    "address": ""
+   },
+   "center": [
+    45.8037,
+    -96.5549
+   ],
+   "zoom": 10,
+   "placeholder": "Example: 1089 2nd Ave N Wheaton MN 56296",
+   "verified": "2026-10-16"
+  },
+  "wabasha": {
+   "id": "wabasha",
+   "label": "Wabasha County",
+   "fips": "27157",
+   "adapter": "mn-wabasha",
+   "publisher": "Wabasha County GIS (via MnGeo Geospatial Commons)",
+   "url": "https://enterprise.gisdata.mn.gov/aghost/rest/services/us_mn_co_wabasha/plan_parcelspolygon/FeatureServer/0",
+   "filter": "county_pin IS NOT NULL AND objectid NOT IN (7709, 8246)",
+   "fields": {
+    "apn": "county_pin",
+    "owner": "owner_name",
+    "address": ""
+   },
+   "center": [
+    44.281,
+    -92.2046
+   ],
+   "zoom": 10,
+   "placeholder": "Example: 45 4th St SW Plainview MN 55964",
+   "verified": "2026-10-16"
+  },
+  "wadena": {
+   "id": "wadena",
+   "label": "Wadena County",
+   "fips": "27159",
+   "adapter": "mn-wadena",
+   "publisher": "Wadena County GIS",
+   "url": "https://gis.co.wadena.mn.us/arcgis/rest/services/LinkPublic/MapServer/0",
+   "filter": "",
+   "fields": {
+    "apn": "PARCEL_NUM",
+    "owner": "TAXPAYER_NAME",
+    "address": "PHYSICAL_ADDRESS"
+   },
+   "center": [
+    46.5871,
+    -94.9459
+   ],
+   "zoom": 10,
+   "placeholder": "Example: 862 Scheer Dr NE Wadena MN 56482",
+   "verified": "2026-10-16"
+  },
+  "wilkin": {
+   "id": "wilkin",
+   "label": "Wilkin County",
+   "fips": "27167",
+   "adapter": "mn-wilkin",
+   "publisher": "Wilkin County GIS",
+   "url": "https://gisweb.co.wilkin.mn.us/arcgis/rest/services/Assessor/TaxParcels_public/MapServer/1",
+   "filter": "",
+   "fields": {
+    "apn": "PARCELID",
+    "owner": "TAXPAYER_NAME",
+    "address": ""
+   },
+   "center": [
+    46.3262,
+    -96.5279
+   ],
+   "zoom": 9,
+   "placeholder": "Example: 401 1st Ave SW Rothsay MN 56579",
+   "verified": "2026-10-16"
+  },
+  "winona": {
+   "id": "winona",
+   "label": "Winona County",
+   "fips": "27169",
+   "adapter": "mn-winona",
+   "publisher": "Winona County GIS (OpenGov tax parcels, hosted by ZJKosel)",
+   "url": "https://services.arcgis.com/n4v88Dv33V9Mhi0b/arcgis/rest/services/OpenGov_TaxParcels_5_15_25/FeatureServer/0",
+   "filter": "",
+   "addressNote": "spec address adrstr not used: street name only",
+   "fields": {
+    "apn": "PARCEL_NUM",
+    "owner": "own1",
+    "address": ""
+   },
+   "center": [
+    44.02,
+    -91.6818
+   ],
+   "zoom": 10,
+   "placeholder": "Example: 1152 W Broadway St Winona MN 55987",
+   "verified": "2026-10-16"
+  },
+  "yellowmedicine": {
+   "id": "yellowmedicine",
+   "label": "Yellow Medicine County",
+   "fips": "27173",
+   "adapter": "mn-yellow-medicine",
+   "publisher": "Yellow Medicine County GIS",
+   "url": "https://gis.co.ym.mn.gov/arcgis/rest/services/Assessors/TaxParcels/MapServer/0",
+   "filter": "",
+   "fields": {
+    "apn": "PARCEL_NUMBER",
+    "owner": "TAXPAYER_NAME",
+    "address": ""
+   },
+   "center": [
+    44.739,
+    -95.906
+   ],
+   "zoom": 9,
+   "placeholder": "Example: 1135 Prentice St Granite Falls MN 56241",
+   "verified": "2026-10-16"
+  }
+ }
+}

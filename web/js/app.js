@@ -3,7 +3,7 @@
 // property links, and map-click behavior are carried over from the original
 // backend/static/app.js unchanged.
 
-import { createService } from "./providers/registry.js";
+import { createService, SPEC_COUNTIES } from "./providers/registry.js";
 import { ParcelLookupRunner } from "./runner.js";
 import { ParcelStore } from "./store.js";
 import { LLMService } from "./llm.js";
@@ -266,7 +266,44 @@ const countyConfig = {
   },
 };
 
+// Spec-driven counties (web/mn_parcel_specs.json, adapter specs from
+// ErisData, CC-BY-4.0). The bundle generator precomputed center/zoom from
+// Census county bounds and a geocodable example address per county. No
+// county property-search page is known for these, so that link is omitted.
+for (const spec of Object.values(SPEC_COUNTIES)) {
+  const { apn, owner, address } = spec.fields;
+  countyConfig[spec.id] = {
+    label: spec.label,
+    center: spec.center,
+    zoom: spec.zoom,
+    placeholder: spec.placeholder,
+    arcgisJsonBase: `${spec.url}/query`,
+    arcgisJsonFields: [apn, owner, address].filter(Boolean).join(","),
+    arcgisJsonIdField: apn,
+    arcgisJsonFilter: spec.filter,
+    zillowSuffix: `${spec.label} MN`,
+    coverage: spec.coverage || "",
+  };
+}
+
 const countySelect = document.getElementById("county");
+
+// Fill the county dropdown alphabetically from countyConfig, keeping the
+// default selection from index.html (St. Louis).
+function populateCountySelect() {
+  const current = countySelect.value || "stlouis";
+  const ids = Object.keys(countyConfig).sort((a, b) =>
+    countyConfig[a].label.localeCompare(countyConfig[b].label)
+  );
+  countySelect.replaceChildren(
+    ...ids.map((id) => {
+      const { label, coverage } = countyConfig[id];
+      return new Option(coverage ? `${label} (partial)` : label, id, false, id === current);
+    })
+  );
+}
+populateCountySelect();
+
 const addressInput = document.getElementById("address");
 const ringsInput = document.getElementById("rings");
 const useLlmInput = document.getElementById("use-llm");
@@ -343,13 +380,21 @@ function drawCountyBorder() {
   if (currentBorderLayer.bringToBack) currentBorderLayer.bringToBack();
 }
 
-function applyCounty() {
+// CC-BY-4.0 credit for the ErisData adapter spec behind spec-driven counties.
+const ERIS_ATTRIBUTION =
+  'Parcel layer spec: <a href="https://github.com/Eriskii/ErisData">ErisData</a> ' +
+  '(Eriskii, <a href="https://creativecommons.org/licenses/by/4.0/">CC-BY-4.0</a>)';
+
+function applyCounty({ keepView = false } = {}) {
   const cfg = getCountyConfig();
   subheadingEl.textContent = cfg.label + " address → owner → adjacent parcel rings";
   addressInput.placeholder = cfg.placeholder;
-  map.setView(cfg.center, cfg.zoom);
+  map.attributionControl.removeAttribution(ERIS_ATTRIBUTION);
+  if (SPEC_COUNTIES[getCounty()]) map.attributionControl.addAttribution(ERIS_ATTRIBUTION);
+  if (!keepView) map.setView(cfg.center, cfg.zoom);
   drawCountyBorder();
   resetSession();
+  if (cfg.coverage) setStatus(`Partial coverage: ${cfg.label} ${cfg.coverage}.`);
 }
 
 countySelect.addEventListener("change", applyCounty);
@@ -396,20 +441,27 @@ function polygonContains(lon, lat, rings) {
   return true;
 }
 
+function featureContains(feat, lon, lat) {
+  const geom = feat && feat.geometry;
+  if (!geom) return false;
+  if (geom.type === "Polygon") return polygonContains(lon, lat, geom.coordinates);
+  if (geom.type === "MultiPolygon") {
+    return geom.coordinates.some((poly) => polygonContains(lon, lat, poly));
+  }
+  return false;
+}
+
 function countyForPoint(lon, lat) {
   for (const id of Object.keys(countyConfig)) {
-    const feat = countyBoundaries[id];
-    const geom = feat && feat.geometry;
-    if (!geom) continue;
-    if (geom.type === "Polygon" && polygonContains(lon, lat, geom.coordinates)) return id;
-    if (
-      geom.type === "MultiPolygon" &&
-      geom.coordinates.some((poly) => polygonContains(lon, lat, poly))
-    ) {
-      return id;
-    }
+    if (featureContains(countyBoundaries[id], lon, lat)) return id;
   }
   return null;
+}
+
+// Any MN county boundary containing the point, supported or not (the
+// boundary file covers all 87; unsupported ones carry the reason).
+function boundaryForPoint(lon, lat) {
+  return Object.values(countyBoundaries).find((feat) => featureContains(feat, lon, lat)) || null;
 }
 
 function detectCounty() {
@@ -592,9 +644,10 @@ function buildPropertyLinks(seedParcel, inputAddress = "") {
   if (!query) return [];
 
   const zillowQuery = `${query} ${cfg.zillowSuffix}`;
-  const where = parcelId
+  let where = parcelId
     ? `${cfg.arcgisJsonIdField}='${parcelId.replace(/'/g, "''")}'`
     : "";
+  if (where && cfg.arcgisJsonFilter) where += ` AND (${cfg.arcgisJsonFilter})`;
 
   const links = [
     {
@@ -609,12 +662,15 @@ function buildPropertyLinks(seedParcel, inputAddress = "") {
       )}`,
       primary: false,
     },
-    {
+  ];
+
+  if (cfg.propertySearch) {
+    links.push({
       label: cfg.propertySearch.label,
       href: cfg.propertySearch.href,
       primary: false,
-    },
-  ];
+    });
+  }
 
   if (where) {
     links.push({
@@ -903,7 +959,22 @@ addressInput.addEventListener("keydown", (event) => {
 
 map.on("click", (event) => {
   if (lookupButton.disabled) return;
-  runLookupByPoint(event.latlng.lat, event.latlng.lng);
+  const { lat, lng } = event.latlng;
+  // Follow the click across county lines: switch to whichever supported
+  // county contains it (keeping the current view) rather than querying the
+  // selected county's layer, which would find nothing there.
+  const clicked = countyForPoint(lng, lat);
+  if (clicked && clicked !== getCounty()) {
+    countySelect.value = clicked;
+    applyCounty({ keepView: true });
+  } else if (!clicked) {
+    const props = boundaryForPoint(lng, lat)?.properties;
+    if (props?.unsupported) {
+      setStatus(`${props.name} County isn't supported: ${props.unsupported}.`, true);
+      return;
+    }
+  }
+  runLookupByPoint(lat, lng);
 });
 
 // ---- LLM settings panel (Phase 4) -------------------------------------

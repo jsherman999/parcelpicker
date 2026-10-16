@@ -2,6 +2,43 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.9.0] - 2026-10-16
+
+### Added
+- 58 more Minnesota counties in the in-browser build (74 total). They are served
+  by one generic provider, `web/js/providers/spec.js`, from
+  `web/mn_parcel_specs.json`: a live-verified subset of the ErisData parcel
+  adapter registry (https://github.com/Eriskii/ErisData, CC-BY-4.0, Eriskii),
+  credited in the README and in the map attribution. Every endpoint was checked
+  on 2026-10-16 for CORS from the Pages origin, an owner-filled point intersect
+  inside the county, adjacency, and long-query POST.
+- `web/county_boundaries.geojson` now covers all 87 counties (Census TIGERweb).
+  Map clicks switch to whichever supported county contains the click, and a
+  click in an unsupported county says why it isn't supported.
+- County dropdown is built alphabetically from `countyConfig`; spec counties'
+  map center/zoom and verified example addresses come from the bundle.
+- Optional `postLongQueries` on `BaseParcelProvider` (on for spec counties):
+  queries whose URL would pass 2,000 characters are sent as a form POST.
+  ArcGIS Online returns 404 for long GET URLs, which detailed parcel polygons
+  in adjacency queries produce. It stays off for the hand-written providers;
+  Olmsted and Ramsey answer POST with 403.
+- `tools/eris_specs/`: verification and bundle-generation scripts.
+- `cors-test.html` also tests every bundled spec endpoint when served from the
+  repo root.
+
+### Fixed
+- Removed the Olmsted "≈0.7° geometry offset" caveat. Geometry is correct
+  WGS84: a point at Mayo Clinic (-92.4663, 44.0222) returns the Mayo Clinic
+  parcel. The sample parcel behind the caveat is on County Rd 19 SE in Pleasant
+  Grove Township, not 19th St SE in Rochester, and Rochester is at ≈ -92.46, not
+  the "expected ≈ -93.0".
+
+### Not supported
+- Kandiyohi, Kittson, Redwood, Rock (unavailable in ErisData); Becker, Brown,
+  Houston, Waseca, Watonwan (no usable owner field); Blue Earth (spec owner
+  field is the parcel number); Fillmore (http-only); Todd (owner is '0');
+  Nicollet (partial 2021 snapshot). Nobles and Martin are partial-coverage.
+
 ## [0.8.1] - 2026-08-21
 
 ### Added

@@ -12,7 +12,7 @@ ParcelPicker is a local-first web app for parcel intelligence. It runs on your M
 > [`docs/in-browser-port-plan.md`](docs/in-browser-port-plan.md). The Python
 > backend below remains the reference implementation.
 
-Supports **Wright, Hennepin, and St. Louis counties in Minnesota**, with the full planned phases:
+Supports **74 of Minnesota's 87 counties** in the in-browser build (the Python backend covers the original 16), with the full planned phases:
 
 1. Address -> seed parcel lookup (parcel ID, owner, address, geometry).
 2. Optional adjacent expansion (`rings=1` or `rings=2`) using parcel-touching geometry.
@@ -25,7 +25,7 @@ Supports **Wright, Hennepin, and St. Louis counties in Minnesota**, with the ful
 
 ## Counties Supported
 
-Sixteen Minnesota counties are supported. Select one from the dropdown in the web UI; the map center, address placeholder, and external property links update automatically.
+The in-browser build supports 74 Minnesota counties: 16 with hand-written providers (below) and 58 driven by bundled ErisData adapter specs (further below). Select one from the dropdown; the map center, address placeholder, and external links update automatically. Clicking the map inside another supported county switches to it, and a click inside an unsupported county says why it isn't supported.
 
 | County | Parcel ID field | ArcGIS Server | Spatial Ref |
 |---|---|---|---|
@@ -35,7 +35,7 @@ Sixteen Minnesota counties are supported. Select one from the dropdown in the we
 | **Sherburne** | `PIN` | `gis.co.sherburne.mn.us/arcgis` | 4326 (WGS84) |
 | **Anoka** | `PIN` | `gisservices.co.anoka.mn.us/anoka_gis` | 4326 (WGS84) |
 | **Ramsey** | `ParcelID` | `maps.co.ramsey.mn.us/arcgis` | 4326 (WGS84) |
-| **Olmsted** | `PIN` | `public.gis.olmstedcounty.gov/arcgis` | 4326 (WGS84) * |
+| **Olmsted** | `PIN` | `public.gis.olmstedcounty.gov/arcgis` | 4326 (WGS84) |
 | **Chisago** | `PIN` | `gis.chisagocounty.us/arcgis` | 102100 (Web Mercator) |
 | **Morrison** | `PIN` | `services1.arcgis.com (ArcGIS Online)` | 4326 (WGS84) |
 | **Scott** | `PID` | `services.arcgis.com (ArcGIS Online)` | 103778 (NAD83 HARN MN South) |
@@ -46,22 +46,131 @@ Sixteen Minnesota counties are supported. Select one from the dropdown in the we
 | **Washington** | `PIN` | `arcgis.metc.state.mn.us` (MN state) | 26915 (UTM 15N) |
 | **Carver** | `PIN` | `arcgis.metc.state.mn.us` (MN state) | 26915 (UTM 15N) |
 
-\* **Olmsted note:** the county's parcel layer is published with a geometry
-offset (≈0.7° east of true WGS84). Address lookups are unaffected, but map
-display and map-click / geocode point-intersects may be shifted. See
-`county_expansion.md` §2.2.
-
 Dakota, Washington, and Carver are served by the shared MN state parcel
 server (`arcgis.metc.state.mn.us`), one layer per county; each query is
 constrained with a `CO_NAME` safety clause so a mis-routed request can never
 return another county's parcels. Carver uses the `TAX_NAME` field for the
 owner (the layer's `OWNER_NAME` column is entirely null, verified 2026-08-21).
 
+### Spec-driven counties (ErisData)
+
+These 58 counties use one generic provider, `web/js/providers/spec.js`, driven
+by `web/mn_parcel_specs.json`. That file is a verified subset of the
+[ErisData](https://github.com/Eriskii/ErisData) parcel adapter registry
+(CC-BY-4.0, by Eriskii; see *Credits and licenses*). Each entry names an ArcGIS
+layer, its parcel ID / owner / address fields, and, for the statewide MnGeo
+layer, a filter clause that pins every query to that county. On 2026-10-16 every
+endpoint was checked live for CORS from `https://jsherman999.github.io`, for an
+owner-filled parcel from a point intersect inside the county's Census boundary,
+for adjacency, and for long-query POST support. Each county's example address
+was geocoded and looked up through the app. The scripts are in
+[`tools/eris_specs/`](tools/eris_specs/).
+
+**Address lookup** names the county field that the address search matches
+first (house number + street, as a prefix match). Counties marked
+*geocode → point* have no usable site-address field: ErisData's mapping was
+street-name-only, house-number-only, or the taxpayer's mailing address. Their
+address searches geocode with Nominatim and then take the parcel under the
+point. Map clicks never need the geocoder. No county property-search page is
+linked for these counties; the Property Links panel offers Zillow, Realtor, and
+the layer's Parcel JSON.
+
+| County | Parcel ID | Owner | Address lookup | Server | Notes |
+|---|---|---|---|---|---|
+| Benton | `TaxPIN` | `TAXPAYER_NAME1` | `PROPERTY_ADDRESS` | `services.arcgis.com` |  |
+| Big Stone | `PARCEL_NUMBER` | `TAXPAYER_NAME` | geocode → point | `services7.arcgis.com` |  |
+| Carlton | `PARCELID` | `OWNAME` | geocode → point | `gis.co.carlton.mn.us` |  |
+| Cass | `county_pin` | `owner_name` | geocode → point | `enterprise.gisdata.mn.gov` | statewide MnGeo layer, `co_name = 'Cass'` |
+| Chippewa | `state_pin` | `owner_name` | geocode → point | `enterprise.gisdata.mn.gov` | statewide MnGeo layer, `co_code = '27023'` |
+| Clay | `PIN` | `TAX_NAME` | `PropertyAddress` | `gis23.claycountymn.gov` |  |
+| Clearwater | `county_pin` | `tax_name` | geocode → point | `enterprise.gisdata.mn.gov` | statewide MnGeo layer, `co_name = 'Clearwater'` |
+| Cook | `COUNTY_PIN` | `OWNER_NAME` | geocode → point | `services.arcgis.com` |  |
+| Cottonwood | `PIN` | `deedhold` | geocode → point | `services6.arcgis.com` |  |
+| Crow Wing | `PIN` | `OWNAME` | geocode → point | `gis.crowwing.us` |  |
+| Dodge | `PIN` | `C0NAME1P` | `FULL_ADD` | `publicmaps.co.goodhue.mn.us` |  |
+| Douglas | `PIN` | `TXOTXT_NAM` | `TXPADR1` | `dc-web-2.co.douglas.mn.us` |  |
+| Faribault | `COUNTY_PIN` | `TAX_NAME` | geocode → point | `services2.arcgis.com` |  |
+| Freeborn | `PIN` | `DEEDHOLDER` | geocode → point | `services3.arcgis.com` |  |
+| Goodhue | `PIN` | `C0NAME1P` | `FULLSTREET` | `publicmaps.co.goodhue.mn.us` |  |
+| Grant | `PARCELID` | `TAXPAYER_NAME` | geocode → point | `gis.co.grant.mn.us` |  |
+| Hubbard | `hubbgis_GIS_Parcels_PIN` | `PINAME1` | geocode → point | `gis.co.hubbard.mn.us` |  |
+| Isanti | `PARCELID` | `OWNERNME1` | geocode → point | `gis.co.isanti.mn.us` |  |
+| Itasca | `PRCL_NBR` | `TAO_NAME` | geocode → point | `maps.co.itasca.mn.us` |  |
+| Jackson | `county_pin` | `owner_name` | geocode → point | `enterprise.gisdata.mn.gov` | statewide MnGeo layer, `co_name = 'Jackson'` |
+| Kanabec | `PIN` | `OWNER_ORIG` | `SiteAddress` | `wfs.schneidercorp.com` |  |
+| Lac qui Parle | `PIN` | `OWNERNAME` | `PHYADD` | `services5.arcgis.com` |  |
+| Lake | `gis_pid` | `tax_ownname` | geocode → point | `enterprise.gisdata.mn.gov` |  |
+| Lake of the Woods | `county_pin` | `tax_name` | geocode → point | `services.arcgis.com` |  |
+| Le Sueur | `PARCEL_NUMBER` | `OWNER_NAME_1` | geocode → point | `gis.co.le-sueur.mn.us` |  |
+| Lincoln | `PARCEL_NUM` | `TP_NAME1` | geocode → point | `services2.arcgis.com` |  |
+| Lyon | `Parcel_ID` | `TXTNAM` | geocode → point | `services.arcgis.com` |  |
+| Mahnomen | `Parcel_Num` | `TAXPAYER_NAME` | geocode → point | `services8.arcgis.com` |  |
+| Marshall | `PARCELID` | `TAXPAYER_NAME` | `PROPERTY_ADDRESS` | `gis.co.marshall.mn.us` |  |
+| Martin | `parcel_id` | `owner` | `address` | `services.arcgis.com` | **partial:** parcel data covers rural parcels only; Fairmont, Truman and Ceylon are missing |
+| McLeod | `county_pin` | `tax_name` | geocode → point | `enterprise.gisdata.mn.gov` | statewide MnGeo layer, `co_name = 'McLeod'` |
+| Meeker | `PID` | `NAME` | geocode → point | `services2.arcgis.com` |  |
+| Mille Lacs | `county_pin` | `tax_name` | geocode → point | `enterprise.gisdata.mn.gov` | statewide MnGeo layer, `co_name = 'Mille Lacs'` |
+| Mower | `state_pin` | `owner_name` | geocode → point | `enterprise.gisdata.mn.gov` | statewide MnGeo layer, `co_code = '27099'` |
+| Murray | `county_pin` | `owner_name` | geocode → point | `enterprise.gisdata.mn.gov` | statewide MnGeo layer, `co_name = 'Murray'` |
+| Nobles | `PIN` | `TaxName` | `PropAddr1` | `services5.arcgis.com` | **partial:** parcel data covers the Worthington area only |
+| Norman | `PARCELID` | `TAXPAYER_NAME` | geocode → point | `gis.co.norman.mn.us` |  |
+| Otter Tail | `PIN` | `OWNNAME` | geocode → point | `web2.co.ottertail.mn.us` |  |
+| Pennington | `PARCELNUM` | `OWNER_NAME_1` | geocode → point | `gismap.co.pennington.mn.us` |  |
+| Pine | `parcelid` | `ownername1` | geocode → point | `gis.co.pine.mn.us` |  |
+| Pipestone | `PARCEL_NUMBER` | `OWNER_NAME` | geocode → point | `gis.pcmn.us` |  |
+| Polk | `Parcel_ID` | `CurOwnerName` | geocode → point | `gis.co.polk.mn.us` |  |
+| Pope | `PARCEL_NUMBER` | `TAXPAYER_NAME` | geocode → point | `gis.popecountymn.gov` |  |
+| Red Lake | `county_pin` | `tax_name` | geocode → point | `enterprise.gisdata.mn.gov` | statewide MnGeo layer, `co_code = '27125'` |
+| Renville | `PARCEL_NUMBER` | `TAXPAYER_NAME` | geocode → point | `gis.renvillecountymn.gov` |  |
+| Rice | `COUNTY_PIN` | `OWNER_NAME` | `SiteAddrFull` | `asr-arcgis01.ricecountymn.gov` |  |
+| Roseau | `PIN` | `TaxName` | geocode → point | `gis.co.roseau.mn.us` |  |
+| Sibley | `PID` | `TAXPAYER_NAME` | geocode → point | `gis.sibleycounty.gov` |  |
+| Stearns | `TAXPARCEL` | `OWNER` | `PROPADDR` | `gis.co.stearns.mn.us` |  |
+| Steele | `PIN` | `OWNAME` | `QRYADDRESS` | `gis.steele.mn` |  |
+| Stevens | `PIN` | `Name` | geocode → point | `services2.arcgis.com` |  |
+| Swift | `PIN` | `OWNAME` | geocode → point | `services3.arcgis.com` |  |
+| Traverse | `PARCEL_NUM` | `TAXPAYER_N` | geocode → point | `services.arcgis.com` |  |
+| Wabasha | `county_pin` | `owner_name` | geocode → point | `enterprise.gisdata.mn.gov` | filter `county_pin IS NOT NULL AND objectid NOT IN (7709, 8246)` |
+| Wadena | `PARCEL_NUM` | `TAXPAYER_NAME` | `PHYSICAL_ADDRESS` | `gis.co.wadena.mn.us` |  |
+| Wilkin | `PARCELID` | `TAXPAYER_NAME` | geocode → point | `gisweb.co.wilkin.mn.us` |  |
+| Winona | `PARCEL_NUM` | `own1` | geocode → point | `services.arcgis.com` |  |
+| Yellow Medicine | `PARCEL_NUMBER` | `TAXPAYER_NAME` | geocode → point | `gis.co.ym.mn.gov` |  |
+
+### Not supported
+
+| County | Why |
+|---|---|
+| Kandiyohi | Parcel data is paywalled (ErisData) |
+| Kittson, Redwood, Rock | Only a parcel viewer is published, with no queryable layer (ErisData) |
+| Becker, Brown, Houston, Waseca | The public parcel layer has no owner field |
+| Watonwan | Owner names are filled for only a few parcels |
+| Blue Earth | The spec's owner field holds the parcel number. The county's `LandRecords/TaxParcelsWGS84` join layer has `Ownership.OWNNAME` and could back a hand-written provider |
+| Fillmore | The parcel server is http-only (https times out), which browsers block on an https page |
+| Todd | Owner is `'0'` for 94% of parcels |
+| Nicollet | The only public layer is a 2021 snapshot of part of North Mankato, with owner last names only |
+
 ## Data Sources
 
 - County ArcGIS parcel layer/query endpoints (machine lookup)
 - Hennepin County address points layer (MapServer/0) for address-to-PID resolution
-- U.S. Census geocoder (fallback from address to point — cross-county)
+- U.S. Census geocoder (backend fallback from address to point); the in-browser build uses Nominatim instead
+- ErisData parcel adapter specs for the 58 spec-driven counties (see below)
+- U.S. Census Bureau TIGERweb county boundaries (`web/county_boundaries.geojson`, all 87 counties)
+
+## Credits and licenses
+
+- **Parcel layer specs:** `web/mn_parcel_specs.json` is adapted from the
+  [ErisData](https://github.com/Eriskii/ErisData) `GIS/parcels` adapter registry
+  by Eriskii, licensed [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/).
+  Changes: subset to the Minnesota counties without a hand-written provider;
+  field names case-corrected and http URLs upgraded to https where needed;
+  partial or mailing-address address mappings blanked; map center/zoom,
+  example addresses and coverage notes added; counties that failed live checks
+  dropped. The app's map attribution credits ErisData whenever a spec-driven
+  county is selected.
+- **County boundaries:** U.S. Census Bureau TIGERweb (public domain), simplified.
+- **Parcel data** belongs to each county, served from its own public ArcGIS
+  services (or MnGeo's statewide open parcels layer).
 
 ## Project Structure
 

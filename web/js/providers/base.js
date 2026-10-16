@@ -16,6 +16,10 @@ const STREET_TYPES = new Set([
 
 export const DIRECTIONALS = new Set(["N", "S", "E", "W", "NE", "NW", "SE", "SW"]);
 
+// ArcGIS Online-hosted layers return 404 once a GET URL passes ~2,000 chars,
+// which adjacency queries with detailed parcel polygons easily exceed.
+const MAX_GET_URL_LENGTH = 2000;
+
 // House number + street name (+ type + directional), cut at the first
 // street-type token so a trailing city token is excluded (mirror of
 // backend/services/base.py street_prefix).
@@ -48,6 +52,10 @@ export class BaseParcelProvider {
   addressField = "";
   extraOutFields = [];
   adjacentSpatialRel = "esriSpatialRelTouches";
+  // Opt-in: send queries whose URL would exceed MAX_GET_URL_LENGTH as a form
+  // POST (still a CORS simple request, no preflight). Off by default because
+  // some county servers (Olmsted, Ramsey) answer POST with 403.
+  postLongQueries = false;
 
   constructor({
     timeoutMs = 20000,
@@ -204,7 +212,14 @@ export class BaseParcelProvider {
       await this._throttle();
       try {
         const full = `${url}?${new URLSearchParams(params).toString()}`;
-        const res = await fetchWithTimeout(full, {}, this._timeoutMs);
+        const res =
+          this.postLongQueries && full.length > MAX_GET_URL_LENGTH
+            ? await fetchWithTimeout(
+                url,
+                { method: "POST", body: new URLSearchParams(params) },
+                this._timeoutMs
+              )
+            : await fetchWithTimeout(full, {}, this._timeoutMs);
 
         if (res.status === 429 || res.status >= 500) {
           const e = new Error(`HTTP ${res.status}`);

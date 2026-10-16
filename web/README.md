@@ -8,8 +8,10 @@ and a geocoder directly (CORS-verified — see `../cors-test.html`).
 
 This is **Phase 1** of the port described in `../docs/in-browser-port-plan.md`:
 
-- ✅ County providers (Wright, Hennepin, St. Louis, Sherburne, Anoka) — ports of
-  `backend/services/*.py`
+- ✅ County providers: 16 hand-written ports of `backend/services/*.py`, plus
+  58 counties served by the generic `providers/spec.js` from the bundled,
+  live-verified ErisData specs in `mn_parcel_specs.json` (CC-BY-4.0, Eriskii;
+  rebuild with `../tools/eris_specs/`)
 - ✅ Lookup runner: address + map-click seeds, ring expansion, caps
 - ✅ Geocoder fallback swapped from Census to Nominatim (bounded to Minnesota)
 - ✅ Client-side CSV / GeoJSON export
@@ -42,7 +44,8 @@ servers allow that origin.
 ```
 index.html              page shell (Leaflet via CDN)
 styles.css              copied from backend/static
-county_boundaries.geojson
+county_boundaries.geojson   all 87 MN counties (Census TIGERweb); unsupported ones carry a reason
+mn_parcel_specs.json        spec-driven counties (ErisData, CC-BY-4.0)
 js/
   app.js                UI + orchestration (was backend/static/app.js)
   config.js             limits + per-request settings
@@ -53,8 +56,11 @@ js/
   runner.js             ring traversal + cache (was services/runner.py)
   providers/
     base.js             was services/base.py
-    wright.js hennepin.js stlouis.js sherburne.js anoka.js
-    registry.js
+    wright.js hennepin.js stlouis.js sherburne.js anoka.js ramsey.js
+    olmsted.js chisago.js morrison.js scott.js aitkin.js koochiching.js
+    beltrami.js mn_state.js   hand-written county providers
+    spec.js             generic provider for mn_parcel_specs.json entries
+    registry.js         county id -> provider (loads the spec bundle)
 ```
 
 ## Notes / known follow-ups
