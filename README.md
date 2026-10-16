@@ -4,6 +4,11 @@ ParcelPicker is a local-first web app for parcel intelligence. It runs on your M
 
 **Live app:** [jsherman999.github.io/parcelpicker](https://jsherman999.github.io/parcelpicker/)
 
+**Credits:** the parcel layer specs behind 58 of the supported counties come from
+[ErisData](https://github.com/Eriskii/ErisData) by Eriskii, licensed
+[CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/). The bundled copy is
+adapted and live-verified (see [Credits and licenses](#credits-and-licenses)).
+
 > **New: all-in-browser build.** A no-server static version lives in [`web/`](web/).
 > It runs entirely in the browser — calling the county ArcGIS endpoints and a
 > geocoder directly (CORS-verified via [`cors-test.html`](cors-test.html)) — with

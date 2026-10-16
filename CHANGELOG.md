@@ -20,8 +20,8 @@ All notable changes to this project will be documented in this file.
 - Optional `postLongQueries` on `BaseParcelProvider` (on for spec counties):
   queries whose URL would pass 2,000 characters are sent as a form POST.
   ArcGIS Online returns 404 for long GET URLs, which detailed parcel polygons
-  in adjacency queries produce. It stays off for the hand-written providers;
-  Olmsted and Ramsey answer POST with 403.
+  in adjacency queries produce. It stays off for the hand-written providers,
+  which keep their original GET-only requests.
 - `tools/eris_specs/`: verification and bundle-generation scripts.
 - `cors-test.html` also tests every bundled spec endpoint when served from the
   repo root.

@@ -53,8 +53,8 @@ export class BaseParcelProvider {
   extraOutFields = [];
   adjacentSpatialRel = "esriSpatialRelTouches";
   // Opt-in: send queries whose URL would exceed MAX_GET_URL_LENGTH as a form
-  // POST (still a CORS simple request, no preflight). Off by default because
-  // some county servers (Olmsted, Ramsey) answer POST with 403.
+  // POST (still a CORS simple request, no preflight). Off by default so the
+  // hand-written providers keep their original GET-only requests.
   postLongQueries = false;
 
   constructor({

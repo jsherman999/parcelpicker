@@ -6,6 +6,8 @@ usage: python3 -I post_cors.py <verify.json> <parcelpicker/web/js/app.js>
 import json, sys, re, urllib.request, urllib.parse
 from concurrent.futures import ThreadPoolExecutor
 GH = "https://jsherman999.github.io"
+# Some county firewalls 403 the default Python-urllib agent; look like a browser.
+UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130 Safari/537.36"
 R = json.load(open(sys.argv[1]))
 app = open(sys.argv[2]).read()
 targets = [(r["name"], r["url"] + "/query", r.get("filter")) for r in R if not r.get("fatal") and r["fips"] != "27153"]
@@ -14,14 +16,14 @@ for m in re.finditer(r'label: "([^"]+)",.*?arcgisJsonBase:\s*"([^"]+)"', app, re
     co = {"Dakota County": "CO_NAME = 'Dakota'", "Washington County": "CO_NAME = 'Washington'", "Carver County": "CO_NAME = 'Carver'"}.get(name)
     targets.append(("EXISTING " + name, url, co))
 def post(url, params):
-    rq = urllib.request.Request(url, data=urllib.parse.urlencode(params).encode(), headers={"Origin": GH, "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8"})
+    rq = urllib.request.Request(url, data=urllib.parse.urlencode(params).encode(), headers={"Origin": GH, "User-Agent": UA, "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8"})
     with urllib.request.urlopen(rq, timeout=60) as r:
         return r.status, r.headers.get("Access-Control-Allow-Origin"), json.load(r)
 def check(t):
     name, url, flt = t
     W = lambda w: f"({w}) AND ({flt})" if flt else w
     try:
-        g = json.load(urllib.request.urlopen(url + "?" + urllib.parse.urlencode({"f": "json", "where": W("1=1"), "outFields": "*", "returnGeometry": "true", "outSR": "4326", "resultRecordCount": "1"}), timeout=60))
+        g = json.load(urllib.request.urlopen(urllib.request.Request(url + "?" + urllib.parse.urlencode({"f": "json", "where": W("1=1"), "outFields": "*", "returnGeometry": "true", "outSR": "4326", "resultRecordCount": "1"}), headers={"User-Agent": UA}), timeout=60))
         rings = g["features"][0]["geometry"]["rings"]
         # pad the geometry with interpolated vertices so the request is long (> 2000 chars)
         dense = []
