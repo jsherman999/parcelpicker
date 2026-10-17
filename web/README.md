@@ -8,8 +8,8 @@ and a geocoder directly (CORS-verified — see `../cors-test.html`).
 
 This is **Phase 1** of the port described in `../docs/in-browser-port-plan.md`:
 
-- ✅ County providers: 16 hand-written ports of `backend/services/*.py`, plus
-  58 counties served by the generic `providers/spec.js` from the bundled,
+- ✅ County providers: 17 hand-written (16 ports of `backend/services/*.py`
+  plus Blue Earth, which is browser-only), and 58 counties served by the generic `providers/spec.js` from the bundled,
   live-verified ErisData specs in `mn_parcel_specs.json` (CC-BY-4.0, Eriskii;
   rebuild with `../tools/eris_specs/`)
 - ✅ Lookup runner: address + map-click seeds, ring expansion, caps
@@ -58,7 +58,7 @@ js/
     base.js             was services/base.py
     wright.js hennepin.js stlouis.js sherburne.js anoka.js ramsey.js
     olmsted.js chisago.js morrison.js scott.js aitkin.js koochiching.js
-    beltrami.js mn_state.js   hand-written county providers
+    beltrami.js mn_state.js blueearth.js   hand-written county providers
     spec.js             generic provider for mn_parcel_specs.json entries
     registry.js         county id -> provider (loads the spec bundle)
 ```

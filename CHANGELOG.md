@@ -21,6 +21,19 @@ All notable changes to this project will be documented in this file.
   towns, since some street addresses recur across them. If neither finds the
   address in the typed town or ZIP, the lookup falls back to the geocoder.
 
+### Fixed
+- Olmsted address lookups match on every part of the address the input has:
+  pre- and post-direction, a route prefix ("County Rd"), street type, and
+  city or ZIP. "200 1st St SW Rochester" previously matched
+  "200 1 ST W, STEWARTVILLE". The looser retry still requires the house
+  number, direction and town. When no parcel lists the address as its own,
+  the lookup tries the county's E911 address points before geocoding.
+  Displayed addresses keep the route prefix ("6126 COUNTY RD 19 SE"). Same
+  change in `backend/services/olmsted.py`.
+- Olmsted's example address is now the real "6126 County Rd 19 SE Rochester
+  MN 55904"; the old "6126 19th St SE Rochester MN 55068" doesn't exist and no
+  longer matches.
+
 ### Changed
 - `tools/eris_specs/gen_bundle.py` lists Blue Earth with the hand-written
   counties instead of as unsupported. `web/county_boundaries.geojson` was

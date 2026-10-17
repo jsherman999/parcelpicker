@@ -118,7 +118,7 @@ const countyConfig = {
     label: "Olmsted County",
     center: [44.01, -92.38],
     zoom: 10,
-    placeholder: "Example: 6126 19th St SE Rochester MN 55068",
+    placeholder: "Example: 6126 County Rd 19 SE Rochester MN 55904",
     propertySearch: {
       label: "Olmsted County GIS Map",
       href: "https://gweb01.co.olmsted.mn.us/WebApps/OlmstedCountyGISMap/",
