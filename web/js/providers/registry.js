@@ -12,6 +12,7 @@ import { ScottProvider } from "./scott.js";
 import { AitkinProvider } from "./aitkin.js";
 import { KoochichingProvider } from "./koochiching.js";
 import { BeltramiProvider } from "./beltrami.js";
+import { BlueEarthProvider } from "./blueearth.js";
 import {
   DakotaProvider,
   WashingtonProvider,
@@ -33,6 +34,7 @@ export const COUNTY_CLASSES = {
   aitkin: AitkinProvider,
   koochiching: KoochichingProvider,
   beltrami: BeltramiProvider,
+  blueearth: BlueEarthProvider,
   dakota: DakotaProvider,
   washington: WashingtonProvider,
   carver: CarverProvider,
@@ -52,6 +54,7 @@ export const COUNTY_LABELS = {
   aitkin: "Aitkin County",
   koochiching: "Koochiching County",
   beltrami: "Beltrami County",
+  blueearth: "Blue Earth County",
   dakota: "Dakota County",
   washington: "Washington County",
   carver: "Carver County",

@@ -17,7 +17,7 @@ adapted and live-verified (see [Credits and licenses](#credits-and-licenses)).
 > [`docs/in-browser-port-plan.md`](docs/in-browser-port-plan.md). The Python
 > backend below remains the reference implementation.
 
-Supports **74 of Minnesota's 87 counties** in the in-browser build (the Python backend covers the original 16), with the full planned phases:
+Supports **75 of Minnesota's 87 counties** in the in-browser build (the Python backend covers the original 16), with the full planned phases:
 
 1. Address -> seed parcel lookup (parcel ID, owner, address, geometry).
 2. Optional adjacent expansion (`rings=1` or `rings=2`) using parcel-touching geometry.
@@ -30,7 +30,7 @@ Supports **74 of Minnesota's 87 counties** in the in-browser build (the Python b
 
 ## Counties Supported
 
-The in-browser build supports 74 Minnesota counties: 16 with hand-written providers (below) and 58 driven by bundled ErisData adapter specs (further below). Select one from the dropdown; the map center, address placeholder, and external links update automatically. Clicking the map inside another supported county switches to it, and a click inside an unsupported county says why it isn't supported.
+The in-browser build supports 75 Minnesota counties: 17 with hand-written providers (below) and 58 driven by bundled ErisData adapter specs (further below). Select one from the dropdown; the map center, address placeholder, and external links update automatically. Clicking the map inside another supported county switches to it, and a click inside an unsupported county says why it isn't supported.
 
 | County | Parcel ID field | ArcGIS Server | Spatial Ref |
 |---|---|---|---|
@@ -50,12 +50,28 @@ The in-browser build supports 74 Minnesota counties: 16 with hand-written provid
 | **Dakota** | `PIN` | `arcgis.metc.state.mn.us` (MN state) | 26915 (UTM 15N) |
 | **Washington** | `PIN` | `arcgis.metc.state.mn.us` (MN state) | 26915 (UTM 15N) |
 | **Carver** | `PIN` | `arcgis.metc.state.mn.us` (MN state) | 26915 (UTM 15N) |
+| **Blue Earth** | `SDEDATA.TaxParcel.ParcelNo` | `gis.blueearthcountymn.gov/server` | 102100 (Web Mercator) |
 
 Dakota, Washington, and Carver are served by the shared MN state parcel
 server (`arcgis.metc.state.mn.us`), one layer per county; each query is
 constrained with a `CO_NAME` safety clause so a mis-routed request can never
 return another county's parcels. Carver uses the `TAX_NAME` field for the
 owner (the layer's `OWNER_NAME` column is entirely null, verified 2026-08-21).
+
+Blue Earth uses the county's `LandRecords/TaxParcelsWGS84` layer, which joins
+the parcel fabric to the county's ownership table, so its field names are
+table-qualified (`Ownership.OWNNAME`, `Ownership.PHYSADDR`). Owner and
+estimated market value are filled for 98.9% and 98.8% of its 33,636 parcels
+(whole layer, checked 2026-10-17). The layer rejects `resultRecordCount`, so
+the adjacency limit is applied in the browser, and long queries go out as a
+form POST (GETs past about 9,000 characters return HTTP 414). Filters on the
+joined ownership fields take about 10 seconds, so an address is first looked
+up in the county's `LandRecords/AddressPoints` layer (about 0.2 seconds; 98% of
+sampled points fall in an owner-filled parcel) and the parcel under that
+point is used. The parcel site address (`Ownership.PHYSADDR`) is the second
+try, then the geocoder. Some street addresses recur across its towns
+(`101 E MAIN ST` is in Mankato, St. Clair and Vernon Center), so the typed
+city or ZIP picks the town.
 
 ### Spec-driven counties (ErisData)
 
@@ -149,7 +165,6 @@ the layer's Parcel JSON.
 | Kittson, Redwood, Rock | Only a parcel viewer is published, with no queryable layer (ErisData) |
 | Becker, Brown, Houston, Waseca | The public parcel layer has no owner field |
 | Watonwan | Owner names are filled for only a few parcels |
-| Blue Earth | The spec's owner field holds the parcel number. The county's `LandRecords/TaxParcelsWGS84` join layer has `Ownership.OWNNAME` and could back a hand-written provider |
 | Fillmore | The parcel server is http-only (https times out), which browsers block on an https page |
 | Todd | Owner is `'0'` for 94% of parcels |
 | Nicollet | The only public layer is a 2021 snapshot of part of North Mankato, with owner last names only |
@@ -171,12 +186,12 @@ evenly across the layer. Every field kept is at least 50% filled; most are over
 90%.
 
 - **Both value and land use (34):** Aitkin, Anoka, Beltrami, Carlton, Carver, Cass, Chisago, Clay, Clearwater, Cook, Crow Wing, Dakota, Hennepin, Hubbard, Isanti, Itasca, Jackson, Le Sueur, Lyon, Morrison, Mower, Olmsted, Pipestone, Pope, Ramsey, Rice, Scott, Sherburne, St. Louis, Stearns, Wabasha, Washington, Winona, Wright.
-- **Value only (2):** Lake, Wilkin.
+- **Value only (3):** Blue Earth, Lake, Wilkin.
 - **Land use only (13):** Chippewa, Cottonwood, Koochiching, Lake of the Woods, Martin, McLeod, Mille Lacs, Nobles, Otter Tail, Pine, Renville, Sibley, Steele. Koochiching
   publishes only a land-only value (`TAXABLELANDVALUE`, about 30% filled), and
   Lake of the Woods' values are from 2021.
 - **Neither (25):** Benton, Big Stone, Dodge, Douglas, Faribault, Freeborn, Goodhue, Grant, Kanabec, Lac qui Parle, Lincoln, Mahnomen, Marshall, Meeker, Murray, Norman, Pennington, Polk, Red Lake, Roseau, Stevens, Swift, Traverse, Wadena, Yellow Medicine.
-- **Value year shown (17):** Aitkin, Chisago, Clay, Clearwater, Cook, Crow Wing, Dakota, Lake, Mower, Ramsey, Rice, Scott, St. Louis, Stearns, Wabasha, Washington, Wright.
+- **Value year shown (18):** Aitkin, Blue Earth, Chisago, Clay, Clearwater, Cook, Crow Wing, Dakota, Lake, Mower, Ramsey, Rice, Scott, St. Louis, Stearns, Wabasha, Washington, Wright.
 
 The Python backend (`backend/`) does not have these fields yet.
 

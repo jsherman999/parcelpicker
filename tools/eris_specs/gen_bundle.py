@@ -14,9 +14,11 @@ import sys
 ERIS, VER, PH, TIGER, WEB = sys.argv[1:6]
 VERIFIED = "2026-10-16"
 
-# The 16 counties with hand-written providers (ids match web/js/providers).
+# The 17 counties with hand-written providers (ids match web/js/providers).
+# Blue Earth (27013) is also an ErisData candidate, but its spec's owner field
+# holds the parcel number; blueearth.js uses the county's ownership join layer.
 EXISTING = {
-    "27001": "aitkin", "27003": "anoka", "27007": "beltrami", "27019": "carver",
+    "27001": "aitkin", "27003": "anoka", "27007": "beltrami", "27013": "blueearth", "27019": "carver",
     "27025": "chisago", "27037": "dakota", "27053": "hennepin", "27071": "koochiching",
     "27097": "morrison", "27109": "olmsted", "27123": "ramsey", "27137": "stlouis",
     "27139": "scott", "27141": "sherburne", "27163": "washington", "27171": "wright",
@@ -35,7 +37,6 @@ UNSUPPORTED = {
     "27165": "its public parcel layer has owner names for only a few parcels",
     "27045": "its parcel server is http-only, which browsers block on an https page",
     "27153": "its public parcel layer has no owner names (owner is '0' for 94% of parcels)",
-    "27013": "its public parcel layer has no owner names (the spec's owner field holds the parcel number)",
     "27103": "its only public parcel layer is a 2021 snapshot of part of North Mankato, with owner last names only",
 }
 
@@ -170,8 +171,10 @@ def main():
 
     counties = {}
     for fips, r in sorted(ver.items()):
+        if fips in EXISTING:
+            continue
         if fips in UNSUPPORTED:
-            assert r.get("fatal") or fips in ("27153", "27103", "27013"), fips
+            assert r.get("fatal") or fips in ("27153", "27103"), fips
             continue
         assert not r.get("fatal"), (fips, r.get("fatal"))
         assert r["cors_gh"] in ("*", "https://jsherman999.github.io"), fips

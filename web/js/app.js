@@ -219,6 +219,22 @@ const countyConfig = {
     arcgisJsonIdField: "PIN",
     zillowSuffix: "Beltrami County MN",
   },
+  blueearth: {
+    label: "Blue Earth County",
+    center: [44.06, -94.07],
+    zoom: 10,
+    placeholder: "Example: 204 S 5th St Mankato MN 56001",
+    propertySearch: {
+      label: "Blue Earth Property Information",
+      href: "https://beacon.schneidercorp.com/Application.aspx?AppID=387&LayerID=5678&PageTypeID=2&PageID=3065",
+    },
+    arcgisJsonBase:
+      "https://gis.blueearthcountymn.gov/server/rest/services/LandRecords/TaxParcelsWGS84/MapServer/0/query",
+    arcgisJsonFields:
+      "SDEDATA.TaxParcel.ParcelNo,Ownership.OWNNAME,Ownership.PHYSADDR,Ownership.PHYSCITY,Ownership.PHYSZIP",
+    arcgisJsonIdField: "SDEDATA.TaxParcel.ParcelNo",
+    zillowSuffix: "Blue Earth County MN",
+  },
   dakota: {
     label: "Dakota County",
     center: [44.78, -93.28],

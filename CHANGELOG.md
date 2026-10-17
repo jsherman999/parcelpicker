@@ -2,6 +2,38 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.11.0] - 2026-10-17
+
+### Added
+- Blue Earth County (Mankato), 75 counties total. A hand-written provider,
+  `web/js/providers/blueearth.js`, reads the county's
+  `LandRecords/TaxParcelsWGS84` layer, which joins the parcel fabric to the
+  ownership table. Its field names are table-qualified
+  (`SDEDATA.TaxParcel.ParcelNo`, `Ownership.OWNNAME`) and work as-is in WHERE,
+  outFields and the returned attributes. Owner and estimated market value
+  (`Ownership.ESTTOTVAL`, assessment year `Ownership.TAXINFOYEAR`) are filled
+  for about 99% of the 33,636 parcels; the layer has no land-use field.
+- Blue Earth address lookups go through the county's
+  `LandRecords/AddressPoints` layer first (about 0.2 s), then point-intersect
+  the parcel layer. The parcel site address is the second try: any filter on
+  the joined `Ownership.*` fields takes about 10 s on the county server. Both
+  match the street by prefix and use the typed city or ZIP to pick between
+  towns, since some street addresses recur across them. If neither finds the
+  address in the typed town or ZIP, the lookup falls back to the geocoder.
+
+### Changed
+- `tools/eris_specs/gen_bundle.py` lists Blue Earth with the hand-written
+  counties instead of as unsupported. `web/county_boundaries.geojson` was
+  regenerated and no longer carries an unsupported note for it.
+
+### Notes
+- The layer rejects `resultRecordCount` ("Pagination is not supported"), so
+  the provider drops it and trims adjacency results in the browser.
+- GETs past about 9,000 characters return HTTP 414, so the provider sets
+  `postLongQueries`. Form POSTs return the CORS header for
+  `https://jsherman999.github.io`.
+- The Python backend was not updated.
+
 ## [0.10.0] - 2026-10-16
 
 ### Added
