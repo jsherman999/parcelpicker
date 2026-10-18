@@ -72,10 +72,13 @@ export class BaseParcelProvider {
   valueField = "";
   valueYearField = "";
   landUseField = "";
-  // Opt-in: send queries whose URL would exceed MAX_GET_URL_LENGTH as a form
-  // POST (still a CORS simple request, no preflight). Off by default so the
-  // hand-written providers keep their original GET-only requests.
-  postLongQueries = false;
+  // Send queries whose URL would exceed MAX_GET_URL_LENGTH as a form POST
+  // (still a CORS simple request, no preflight). Large rural parcels put
+  // 1,000+ vertices in the adjacency geometry, and servers reject GET URLs
+  // that long (e.g. Wright's ArcGIS Online layer answers 404). Every
+  // hand-written provider's server accepted a cross-origin POST on
+  // 2026-10-18 except Chisago, which opts out until it can be checked.
+  postLongQueries = true;
 
   constructor({
     timeoutMs = 20000,

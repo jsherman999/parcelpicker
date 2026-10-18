@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.11.1] - 2026-10-18
+
+### Fixed
+- Browsers no longer fill saved logins into the page. All apps on
+  `jsherman999.github.io` share one origin, so a saved Bluesky login for
+  another app put the handle in Property Address (and could put its password
+  in the API key field). The API key field is now masked text instead of
+  `type="password"`, and both fields tell password managers to stay out.
+- Clicking a parcel on the map puts its site address in the address box
+  (or empties it). Run Lookup then expands rings from that parcel instead of
+  geocoding whatever the box held before.
+- Ring expansion around large rural parcels works in the hand-written
+  counties: long adjacency queries go out as a form POST, as the spec
+  counties already did. A Wright County farm parcel's 3,099-character GET
+  returned HTTP 404; the POST returns its 14 neighbors. Chisago stays on GET
+  until its POST support can be checked (its server answered HTTP 500 to
+  every request on 2026-10-18).
+
 ## [0.11.0] - 2026-10-17
 
 ### Added

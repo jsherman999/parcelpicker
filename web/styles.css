@@ -145,6 +145,11 @@ input::placeholder {
   color: #8397ba;
 }
 
+/* Hides the API key without type="password", which invites credential autofill. */
+.masked-key {
+  -webkit-text-security: disc;
+}
+
 .hint {
   margin: 0.45rem 0 0;
   font-size: 0.8rem;

@@ -14,6 +14,9 @@ export class ChisagoProvider extends BaseParcelProvider {
   addressField = "PropAddr";
   extraOutFields = ["PropCity", "PropZip"];
   adjacentSpatialRel = "esriSpatialRelIntersects";
+  // POST with CORS unverified: the server answered HTTP 500 to every request
+  // on 2026-10-18. Re-test before enabling.
+  postLongQueries = false;
 
   _getAddressWhereExact(cleaned) {
     const street = this._streetLine(cleaned);

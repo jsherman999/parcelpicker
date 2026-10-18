@@ -37,9 +37,18 @@
         </div>
 
         <label for="address">Property Address</label>
+        <!-- Keep password managers out: every app on jsherman999.github.io
+             shares one origin, so saved logins for the others (e.g. a Bluesky
+             handle) would otherwise be filled in here. -->
         <input
           id="address"
+          name="parcel-address"
           type="text"
+          autocomplete="off"
+          data-1p-ignore
+          data-lpignore="true"
+          data-bwignore
+          data-form-type="other"
           placeholder="Example: 4706 Mayer Ave NE St Michael MN 55376"
         />
         <p class="hint">Best format: full street + city + state + ZIP for highest match rate.</p>
@@ -71,9 +80,24 @@
             <option value="openrouter">OpenRouter</option>
           </select>
           <label for="llm-model">Model</label>
-          <input id="llm-model" type="text" placeholder="gpt-4o-mini" />
+          <input id="llm-model" type="text" autocomplete="off" data-1p-ignore data-lpignore="true" data-bwignore placeholder="gpt-4o-mini" />
           <label for="llm-key">API Key</label>
-          <input id="llm-key" type="password" autocomplete="off" placeholder="sk-..." />
+          <!-- Masked text, not type="password": a password field makes browsers
+               treat this page as a login form and autofill saved credentials
+               for this origin into it (and the address box as the username). -->
+          <input
+            id="llm-key"
+            type="text"
+            class="masked-key"
+            autocomplete="off"
+            spellcheck="false"
+            autocapitalize="off"
+            data-1p-ignore
+            data-lpignore="true"
+            data-bwignore
+            data-form-type="other"
+            placeholder="sk-..."
+          />
           <div class="lookup-row">
             <button id="llm-save" type="button">Save</button>
             <button id="llm-clear" type="button">Clear</button>

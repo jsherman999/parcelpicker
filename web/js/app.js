@@ -359,6 +359,7 @@ let currentBorderLayer = null;
 let currentRun = null;
 let sessionParcels = new Map(); // parcel_id -> parcel (accumulated map selection)
 let selectedParcelId = null; // most recently inspected parcel
+let selectionAddress = null; // what a map click wrote into the address box
 
 // One runner per county, created on demand (each wraps its own provider).
 const runners = {};
@@ -797,6 +798,8 @@ function renderSession() {
 function resetSession() {
   sessionParcels.clear();
   selectedParcelId = null;
+  if (selectionAddress !== null && addressInput.value === selectionAddress) addressInput.value = "";
+  selectionAddress = null;
   clearMap();
   renderTable([]);
   hidePropertyLinks();
@@ -899,6 +902,13 @@ function handleRunError(error) {
 
 async function runLookup() {
   const address = addressInput.value.trim();
+  // The box still holds what a map click put there (the parcel's address, or
+  // nothing): look up from that parcel rather than geocoding its address.
+  if (selectedParcelId && selectionAddress !== null && address === selectionAddress.trim()) {
+    await expandSelected();
+    return;
+  }
+  selectionAddress = null;
   if (!address) {
     setStatus("Enter an address first.", true);
     return;
@@ -935,6 +945,8 @@ async function runLookupByPoint(lat, lon) {
     }
     sessionParcels.set(parcel.parcel_id, parcel);
     selectedParcelId = parcel.parcel_id;
+    selectionAddress = parcel.site_address || "";
+    addressInput.value = selectionAddress;
     renderSession();
     setStatus(
       `Selected parcel ${parcel.parcel_id} — ${parcel.owner_name || "owner unknown"}. ` +
