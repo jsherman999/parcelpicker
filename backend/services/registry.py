@@ -1,69 +1,59 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Any
 
-from backend.services.base import BaseParcelService
-from backend.services.wright import WrightParcelService
-from backend.services.hennepin import HennepinParcelService
-from backend.services.stlouis import StLouisParcelService
-from backend.services.sherburne import SherburneParcelService
-from backend.services.anoka import AnokaParcelService
-from backend.services.ramsey import RamseyParcelService
-from backend.services.olmsted import OlmstedParcelService
-from backend.services.chisago import ChisagoParcelService
-from backend.services.morrison import MorrisonParcelService
-from backend.services.scott import ScottParcelService
-from backend.services.aitkin import AitkinParcelService
-from backend.services.koochiching import KoochichingParcelService
-from backend.services.beltrami import BeltramiParcelService
+from backend.services.base import BaseParcelProvider
+from backend.services.wright import WrightParcelProvider
+from backend.services.hennepin import HennepinParcelProvider
+from backend.services.stlouis import StLouisParcelProvider
+from backend.services.sherburne import SherburneParcelProvider
+from backend.services.anoka import AnokaParcelProvider
+from backend.services.ramsey import RamseyParcelProvider
+from backend.services.olmsted import OlmstedParcelProvider
+from backend.services.chisago import ChisagoParcelProvider
+from backend.services.morrison import MorrisonParcelProvider
+from backend.services.scott import ScottParcelProvider
+from backend.services.aitkin import AitkinParcelProvider
+from backend.services.koochiching import KoochichingParcelProvider
+from backend.services.beltrami import BeltramiParcelProvider
 from backend.services.mn_state import (
-    DakotaParcelService,
-    WashingtonParcelService,
-    CarverParcelService,
+    DakotaParcelProvider,
+    WashingtonParcelProvider,
+    CarverParcelProvider,
 )
 
 
-COUNTY_CLASSES: dict[str, type[BaseParcelService]] = {
-    "wright": WrightParcelService,
-    "hennepin": HennepinParcelService,
-    "stlouis": StLouisParcelService,
-    "sherburne": SherburneParcelService,
-    "anoka": AnokaParcelService,
-    "ramsey": RamseyParcelService,
-    "olmsted": OlmstedParcelService,
-    "chisago": ChisagoParcelService,
-    "morrison": MorrisonParcelService,
-    "scott": ScottParcelService,
-    "aitkin": AitkinParcelService,
-    "koochiching": KoochichingParcelService,
-    "beltrami": BeltramiParcelService,
-    "dakota": DakotaParcelService,
-    "washington": WashingtonParcelService,
-    "carver": CarverParcelService,
-}
+@dataclass(frozen=True, slots=True)
+class County:
+    label: str
+    provider: type[BaseParcelProvider]
 
-COUNTY_LABELS: dict[str, str] = {
-    "wright": "Wright County",
-    "hennepin": "Hennepin County",
-    "stlouis": "St. Louis County",
-    "sherburne": "Sherburne County",
-    "anoka": "Anoka County",
-    "ramsey": "Ramsey County",
-    "olmsted": "Olmsted County",
-    "chisago": "Chisago County",
-    "morrison": "Morrison County",
-    "scott": "Scott County",
-    "aitkin": "Aitkin County",
-    "koochiching": "Koochiching County",
-    "beltrami": "Beltrami County",
-    "dakota": "Dakota County",
-    "washington": "Washington County",
-    "carver": "Carver County",
+
+# One record per supported county, keyed by the county id that parcels,
+# runs and address aliases carry.
+COUNTIES: dict[str, County] = {
+    "wright": County("Wright County", WrightParcelProvider),
+    "hennepin": County("Hennepin County", HennepinParcelProvider),
+    "stlouis": County("St. Louis County", StLouisParcelProvider),
+    "sherburne": County("Sherburne County", SherburneParcelProvider),
+    "anoka": County("Anoka County", AnokaParcelProvider),
+    "ramsey": County("Ramsey County", RamseyParcelProvider),
+    "olmsted": County("Olmsted County", OlmstedParcelProvider),
+    "chisago": County("Chisago County", ChisagoParcelProvider),
+    "morrison": County("Morrison County", MorrisonParcelProvider),
+    "scott": County("Scott County", ScottParcelProvider),
+    "aitkin": County("Aitkin County", AitkinParcelProvider),
+    "koochiching": County("Koochiching County", KoochichingParcelProvider),
+    "beltrami": County("Beltrami County", BeltramiParcelProvider),
+    "dakota": County("Dakota County", DakotaParcelProvider),
+    "washington": County("Washington County", WashingtonParcelProvider),
+    "carver": County("Carver County", CarverParcelProvider),
 }
 
 
-def create_service(county: str, **kwargs: Any) -> BaseParcelService:
-    cls = COUNTY_CLASSES.get(county)
-    if cls is None:
-        raise ValueError(f"Unknown county: {county}. Options: {list(COUNTY_CLASSES.keys())}")
-    return cls(**kwargs)
+def create_provider(county: str, **kwargs: Any) -> BaseParcelProvider:
+    record = COUNTIES.get(county)
+    if record is None:
+        raise ValueError(f"Unknown county: {county}. Options: {list(COUNTIES)}")
+    return record.provider(county=county, **kwargs)

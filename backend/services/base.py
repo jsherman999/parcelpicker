@@ -2,12 +2,16 @@ from __future__ import annotations
 
 import asyncio
 import json
+import math
 import re
 from dataclasses import dataclass
 from time import monotonic
 from typing import Any
 
 import httpx
+
+from backend.services.geometry import esri_to_geojson, geojson_to_esri
+from backend.services.parcel import ParcelRecord, normalize_text
 
 CENSUS_GEOCODE_URL = "https://geocoding.geo.census.gov/geocoder/locations/onelineaddress"
 
@@ -50,6 +54,34 @@ def street_prefix(address: str) -> str | None:
     return " ".join(tokens[:4])
 
 
+# County layers mark "no value" with -9999, 0, "NULL", blanks or runs of
+# spaces (mirrors cleanText / cleanAmount in web/js/providers/base.js).
+_NO_VALUE_TEXT = re.compile(r"^(?:NULL|-9999(?:\.0+)?|0(?:\.0+)?)?$", re.IGNORECASE)
+_LEADING_NUMBER = re.compile(r"^[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?")
+
+
+def clean_text(value: Any) -> str:
+    text = " ".join(str("" if value is None else value).split())
+    return "" if _NO_VALUE_TEXT.match(text) else text
+
+
+def clean_amount(value: Any) -> float | None:
+    if value is None:
+        return None
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        number = float(value)
+    else:
+        match = _LEADING_NUMBER.match(re.sub(r"[$,\s]", "", str(value)))
+        if not match:
+            return None
+        number = float(match.group(0))
+    return number if math.isfinite(number) and number > 0 else None
+
+
+class BudgetExceededError(RuntimeError):
+    """The run's request budget is spent."""
+
+
 @dataclass(slots=True)
 class RequestBudget:
     max_requests: int
@@ -58,20 +90,10 @@ class RequestBudget:
     def consume(self) -> None:
         self.used_requests += 1
         if self.used_requests > self.max_requests:
-            raise RuntimeError(
+            raise BudgetExceededError(
                 "Request budget exceeded while querying parcel providers. "
                 "Increase MAX_REQUESTS_PER_RUN if needed."
             )
-
-
-@dataclass(slots=True)
-class ParcelRecord:
-    parcel_id: str
-    owner_name: str
-    site_address: str
-    geometry: dict[str, Any] | None
-    source: str
-    matched_by: str
 
 
 @dataclass(slots=True)
@@ -81,25 +103,34 @@ class GeocodeResult:
     matched_address: str
 
 
-class BaseParcelService:
+class BaseParcelProvider:
 
     endpoint_url: str = ""
-    source_label: str = ""
+    source_id: str = ""
     parcel_id_field: str = ""
     owner_field: str = ""
     address_field: str = ""
     extra_out_fields: list[str] = []
     adjacent_spatial_rel: str = "esriSpatialRelTouches"
+    # Estimated Market Value: one field, or a list of fields that are summed
+    # (Sherburne publishes land and building EMV separately).
+    # value_year_field is the layer's assessment or market year, when it has
+    # one. "" means the county doesn't publish it.
+    value_field: str | list[str] = ""
+    value_year_field: str = ""
+    land_use_field: str = ""
 
     def __init__(
         self,
         *,
+        county: str = "",
         client: httpx.AsyncClient | None = None,
         timeout_seconds: float = 20.0,
         max_retries: int = 2,
         retry_backoff_seconds: float = 0.8,
         min_interval_seconds: float = 0.15,
     ) -> None:
+        self.county = county
         self._external_client = client
         self._timeout_seconds = timeout_seconds
         self._max_retries = max_retries
@@ -117,7 +148,7 @@ class BaseParcelService:
         *,
         budget: RequestBudget,
     ) -> ParcelRecord | None:
-        cleaned = self._normalize_address(address)
+        cleaned = normalize_text(address)
         if not cleaned:
             raise ValueError("Address must not be empty.")
 
@@ -127,7 +158,7 @@ class BaseParcelService:
 
         feature = await self._query_by_address(cleaned, budget=budget)
         if feature is not None:
-            record = self._feature_to_record(feature, matched_by=f"{self.source_label}_address")
+            record = self._feature_to_record(feature, matched_by="address")
             self._cache_record(cleaned, record)
             return record
 
@@ -141,7 +172,7 @@ class BaseParcelService:
             if feature is not None:
                 record = self._feature_to_record(
                     feature,
-                    matched_by=f"{self.source_label}_address_from_census",
+                    matched_by="address",
                 )
                 self._cache_record(cleaned, record)
                 self._cache_record(street_only, record)
@@ -151,7 +182,7 @@ class BaseParcelService:
         if feature is None:
             return None
 
-        record = self._feature_to_record(feature, matched_by="census_point_intersect")
+        record = self._feature_to_record(feature, matched_by="geocode_point")
         self._cache_record(cleaned, record)
         return record
 
@@ -165,7 +196,7 @@ class BaseParcelService:
         feature = await self._query_by_point(lon, lat, budget=budget)
         if feature is None:
             return None
-        record = self._feature_to_record(feature, matched_by="map_click_intersect")
+        record = self._feature_to_record(feature, matched_by="map_point")
         self._cache_record(None, record)
         return record
 
@@ -180,7 +211,7 @@ class BaseParcelService:
         if not geometry:
             return []
 
-        esri_geometry = self._to_esri_polygon(geometry)
+        esri_geometry = geojson_to_esri(geometry)
         if esri_geometry is None:
             return []
 
@@ -201,7 +232,7 @@ class BaseParcelService:
 
         neighbors: list[ParcelRecord] = []
         for feature in features:
-            record = self._feature_to_record(feature, matched_by=f"{self.source_label}_touches")
+            record = self._feature_to_record(feature, matched_by="adjacent")
             if not record.parcel_id or record.parcel_id in exclude_ids:
                 continue
             neighbors.append(record)
@@ -354,7 +385,27 @@ class BaseParcelService:
         if self.address_field:
             fields.append(self.address_field)
         fields.extend(self.extra_out_fields)
-        return ",".join(fields)
+        fields.extend(self._value_fields())
+        if self.value_year_field:
+            fields.append(self.value_year_field)
+        if self.land_use_field:
+            fields.append(self.land_use_field)
+        return ",".join(dict.fromkeys(fields))
+
+    def _value_fields(self) -> list[str]:
+        fields = self.value_field if isinstance(self.value_field, list) else [self.value_field]
+        return [field for field in fields if field]
+
+    def _market_value(self, attrs: dict[str, Any]) -> float | None:
+        parts = [clean_amount(attrs.get(field)) for field in self._value_fields()]
+        values = [part for part in parts if part is not None]
+        return sum(values) if values else None
+
+    def _market_value_year(self, attrs: dict[str, Any]) -> str:
+        if not self.value_year_field:
+            return ""
+        year = int(clean_amount(attrs.get(self.value_year_field)) or 0)
+        return str(year) if 1990 <= year <= 2100 else ""
 
     def _get_address_where_exact(self, cleaned: str) -> str:
         return f"UPPER({self.address_field}) = '{self._sql_escape(cleaned)}'"
@@ -372,47 +423,18 @@ class BaseParcelService:
         matched_by: str,
     ) -> ParcelRecord:
         attrs = feature.get("attributes", {})
-        geometry = self._geometry_to_geojson(feature.get("geometry"))
-
-        parcel_id = str(attrs.get(self.parcel_id_field) or "").strip()
-        owner_name = str(attrs.get(self.owner_field) or "").strip()
-        site_address = self._build_address(attrs)
-
         return ParcelRecord(
-            parcel_id=parcel_id,
-            owner_name=owner_name,
-            site_address=site_address,
-            geometry=geometry,
-            source=self.source_label,
+            county=self.county,
+            parcel_id=str(attrs.get(self.parcel_id_field) or "").strip(),
+            owner_name=str(attrs.get(self.owner_field) or "").strip(),
+            site_address=self._build_address(attrs),
+            market_value=self._market_value(attrs),
+            market_value_year=self._market_value_year(attrs),
+            land_use=clean_text(attrs.get(self.land_use_field)) if self.land_use_field else "",
+            geometry=esri_to_geojson(feature.get("geometry")),
+            source_id=self.source_id,
             matched_by=matched_by,
         )
-
-    def _geometry_to_geojson(self, geometry: dict[str, Any] | None) -> dict[str, Any] | None:
-        if not geometry:
-            return None
-
-        if "rings" in geometry:
-            return {"type": "Polygon", "coordinates": geometry["rings"]}
-
-        if "x" in geometry and "y" in geometry:
-            return {"type": "Point", "coordinates": [geometry["x"], geometry["y"]]}
-
-        return None
-
-    def _to_esri_polygon(self, geojson_geometry: dict[str, Any]) -> dict[str, Any] | None:
-        geo_type = geojson_geometry.get("type")
-        if geo_type != "Polygon":
-            return None
-        rings = geojson_geometry.get("coordinates")
-        if not isinstance(rings, list):
-            return None
-        return {
-            "rings": rings,
-            "spatialReference": {"wkid": 4326},
-        }
-
-    def _normalize_address(self, address: str) -> str:
-        return " ".join(address.strip().upper().split())
 
     def _extract_street_address(self, matched_address: str) -> str | None:
         if not matched_address:
@@ -420,7 +442,7 @@ class BaseParcelService:
         street_segment = matched_address.split(",", maxsplit=1)[0].strip()
         if not street_segment:
             return None
-        street_segment = self._normalize_address(street_segment)
+        street_segment = normalize_text(street_segment)
         street_segment = re.sub(r"\s+\d{5}(?:-\d{4})?$", "", street_segment).strip()
         return street_segment or None
 

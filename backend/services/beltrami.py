@@ -3,7 +3,8 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from backend.services.base import BaseParcelService, street_prefix, ParcelRecord
+from backend.services.base import BaseParcelProvider, street_prefix
+from backend.services.parcel import ParcelRecord
 
 
 BELTRAMI_QUERY_URL = (
@@ -12,12 +13,14 @@ BELTRAMI_QUERY_URL = (
 )
 
 
-class BeltramiParcelService(BaseParcelService):
+class BeltramiParcelProvider(BaseParcelProvider):
 
     endpoint_url = BELTRAMI_QUERY_URL
-    source_label = "beltrami_county_arcgis"
+    source_id = "beltrami_county_arcgis"
     parcel_id_field = "PIN"
     owner_field = "OWNERNAME1"
+    value_field = "EMV_TTL"
+    land_use_field = "USE1_DESC"
     address_field = "PROP_ADD1"
     extra_out_fields = ["OWNERNAME2", "PROP_CITY", "PROP_ZIP"]
     adjacent_spatial_rel = "esriSpatialRelIntersects"

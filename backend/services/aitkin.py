@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from backend.services.base import BaseParcelService, street_prefix
+from backend.services.base import BaseParcelProvider, street_prefix
 
 
 AITKIN_QUERY_URL = (
@@ -12,12 +12,15 @@ AITKIN_QUERY_URL = (
 )
 
 
-class AitkinParcelService(BaseParcelService):
+class AitkinParcelProvider(BaseParcelProvider):
 
     endpoint_url = AITKIN_QUERY_URL
-    source_label = "aitkin_county_arcgis"
+    source_id = "aitkin_county_arcgis"
     parcel_id_field = "PRCL_NBR"
     owner_field = "OWNNAME"
+    value_field = "ESTTOTVAL"
+    value_year_field = "ASMT_YR"
+    land_use_field = "TPCLS1"
     address_field = "ADDR_1"
     extra_out_fields = ["ADDR_2", "Physical_Address", "Physical_City", "Physical_Zip"]
     adjacent_spatial_rel = "esriSpatialRelIntersects"

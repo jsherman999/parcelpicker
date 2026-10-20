@@ -9,6 +9,7 @@ function csvCell(value) {
 export function runToCsv(run) {
   const header = [
     "run_id",
+    "county",
     "ring_number",
     "is_seed",
     "parcel_id",
@@ -19,13 +20,14 @@ export function runToCsv(run) {
     "market_value_year",
     "land_use",
     "matched_by",
-    "source",
+    "source_id",
   ];
   const lines = [header.map(csvCell).join(",")];
   for (const p of run.parcels || []) {
     lines.push(
       [
         run.id,
+        run.county ?? "",
         p.ring_number ?? "",
         p.is_seed ? 1 : 0,
         p.parcel_id ?? "",
@@ -36,7 +38,7 @@ export function runToCsv(run) {
         p.market_value_year ?? "",
         p.land_use ?? "",
         p.matched_by ?? "",
-        p.source ?? "",
+        p.source_id ?? "",
       ]
         .map(csvCell)
         .join(",")
@@ -54,6 +56,7 @@ export function runToGeoJson(run) {
       geometry: p.geometry,
       properties: {
         run_id: run.id,
+        county: run.county,
         ring_number: p.ring_number,
         is_seed: p.is_seed,
         parcel_id: p.parcel_id,
@@ -64,7 +67,7 @@ export function runToGeoJson(run) {
         market_value_year: p.market_value_year || null,
         land_use: p.land_use || null,
         matched_by: p.matched_by,
-        source: p.source,
+        source_id: p.source_id,
       },
     });
   }

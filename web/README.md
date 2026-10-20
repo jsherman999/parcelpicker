@@ -51,6 +51,8 @@ js/
   config.js             limits + per-request settings
   geocode.js            Nominatim address -> point
   export.js             client-side CSV / GeoJSON
+  model.js              the parcel and run model: fields, matched_by, run input
+  geometry.js           Esri <-> GeoJSON (multipart-aware), point-in-polygon
   store.js              IndexedDB cache + history (was db.py)
   llm.js                owner normalize + summary (was services/llm.py)
   runner.js             ring traversal + cache (was services/runner.py)
@@ -60,7 +62,8 @@ js/
     olmsted.js chisago.js morrison.js scott.js aitkin.js koochiching.js
     beltrami.js mn_state.js blueearth.js   hand-written county providers
     spec.js             generic provider for mn_parcel_specs.json entries
-    registry.js         county id -> provider (loads the spec bundle)
+    registry.js         one record per county: provider, label, map view,
+                        links (loads the spec bundle)
 ```
 
 ## Notes / known follow-ups
@@ -70,7 +73,8 @@ js/
   viewbox; validate against real addresses and tighten if needed.
 - **Persistence:** runs, parcels, and address aliases are cached in IndexedDB
   for 30 days; repeat lookups and clicks inside cached parcels are served
-  locally. Clearing site data resets the cache.
+  locally. Everything is keyed by county, since parcel IDs repeat across
+  counties. Clearing site data resets the cache.
 - **LLM key:** entered in the LLM Settings panel and kept in `localStorage` on
-  this origin only. It is sent only to the chosen provider. Any script on the
+  this origin only. It is sent only to the chosen LLM vendor. Any script on the
   origin can read it, so use a scoped/limited key; "Clear" removes it.

@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from backend.services.base import BaseParcelService
+from backend.services.base import BaseParcelProvider
 
 
 SHERBURNE_QUERY_URL = (
@@ -12,12 +12,14 @@ SHERBURNE_QUERY_URL = (
 )
 
 
-class SherburneParcelService(BaseParcelService):
+class SherburneParcelProvider(BaseParcelProvider):
 
     endpoint_url = SHERBURNE_QUERY_URL
-    source_label = "sherburne_county_arcgis"
+    source_id = "sherburne_county_arcgis"
     parcel_id_field = "PIN"
     owner_field = "OWNER_NAME"
+    value_field = ["EMV_LAND", "EMV_BLDG"]
+    land_use_field = "CLS_DESC"
     address_field = ""
     extra_out_fields = [
         "BLDG_NUM",
@@ -28,11 +30,6 @@ class SherburneParcelService(BaseParcelService):
         "CITY_MAIL",
         "ZIP",
     ]
-
-    def _get_outfields(self) -> str:
-        fields = [self.parcel_id_field, self.owner_field]
-        fields.extend(self.extra_out_fields)
-        return ",".join(fields)
 
     def _get_address_where_exact(self, cleaned: str) -> str:
         house_no = self._extract_house_number(cleaned)

@@ -1,11 +1,12 @@
 // Port of backend/services/stlouis.py
 import { BaseParcelProvider } from "./base.js";
+import { normalizeText } from "../model.js";
 
 export class StLouisProvider extends BaseParcelProvider {
   endpointUrl =
     "https://gis.stlouiscountymn.gov/server2/rest/services/" +
     "GeneralUse/Cadastral/MapServer/23/query";
-  sourceLabel = "stlouis_county_arcgis";
+  sourceId = "stlouis_county_arcgis";
   parcelIdField = "PRCL_NBR";
   ownerField = "OWNAME";
   valueField = "EstTotalValue";
@@ -25,7 +26,7 @@ export class StLouisProvider extends BaseParcelProvider {
   _extractStreetPortion(address) {
     let result = address.replace(/\s+MN\s+\d{5}(?:-\d{4})?$/i, "");
     result = result.trim().replace(/\s+\S+$/, "");
-    return this._normalizeAddress(result);
+    return normalizeText(result);
   }
 
   _buildAddress(attrs) {

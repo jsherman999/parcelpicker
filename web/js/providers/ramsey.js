@@ -5,7 +5,7 @@ export class RamseyProvider extends BaseParcelProvider {
   endpointUrl =
     "https://maps.co.ramsey.mn.us/arcgis/rest/services/" +
     "OpenData/OpenData/MapServer/12/query";
-  sourceLabel = "ramsey_county_arcgis";
+  sourceId = "ramsey_county_arcgis";
   parcelIdField = "ParcelID";
   ownerField = "OwnerName";
   valueField = "EMVTotal";

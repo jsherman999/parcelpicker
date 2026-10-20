@@ -520,9 +520,7 @@ function buildPropertyLinks(run, seedParcel) {
   const cfg = getCountyConfig();
   const parcelId = seedParcel?.parcel_id || "";
   const siteAddress = seedParcel?.site_address || "";
-  const inputAddress = (run.input_address || "").startsWith("POINT(")
-    ? ""
-    : run.input_address || "";
+  const inputAddress = run.input?.kind === "address" ? run.input.address : "";
   const query = (inputAddress || siteAddress || parcelId).trim();
   if (!query) {
     return [];
@@ -575,7 +573,8 @@ function renderPropertyLinks(run) {
     return;
   }
 
-  const displayAddress = seedParcel.site_address || run.input_address || "(unknown)";
+  const displayAddress =
+    seedParcel.site_address || (run.input?.kind === "address" ? run.input.address : "") || "(unknown)";
   linksContextEl.textContent = `${displayAddress} • Parcel ${seedParcel.parcel_id || "(n/a)"}`;
 
   const links = buildPropertyLinks(run, seedParcel);
@@ -608,7 +607,7 @@ function renderRun(run) {
 
   const seedParcel = (run.parcels || []).find((parcel) => parcel.is_seed);
   const detectedAddress = (seedParcel && seedParcel.site_address) || "";
-  if (detectedAddress && String(run.input_address || "").startsWith("POINT(")) {
+  if (detectedAddress && run.input?.kind === "point") {
     addressInput.value = detectedAddress;
   }
 

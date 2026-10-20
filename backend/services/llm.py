@@ -13,7 +13,7 @@ OPENROUTER_CHAT_URL = "https://openrouter.ai/api/v1/chat/completions"
 
 @dataclass(slots=True)
 class LLMConfig:
-    provider: str
+    vendor: str
     model: str
     openai_api_key: str | None
     openrouter_api_key: str | None
@@ -29,10 +29,10 @@ class LLMService:
         if not self._config.enabled:
             return False
 
-        provider = self._config.provider.lower().strip()
-        if provider == "openai":
+        vendor = self._config.vendor.lower().strip()
+        if vendor == "openai":
             return bool(self._config.openai_api_key)
-        if provider == "openrouter":
+        if vendor == "openrouter":
             return bool(self._config.openrouter_api_key)
         return False
 
@@ -55,7 +55,7 @@ class LLMService:
     async def summarize_lookup(
         self,
         *,
-        input_address: str,
+        input_label: str,
         rings_requested: int,
         parcel_count: int,
         owner_count: int,
@@ -66,7 +66,7 @@ class LLMService:
         prompt = (
             "Write a concise 1-2 sentence summary for a parcel lookup run. "
             "Do not invent facts. "
-            f"Address: {input_address}. Rings requested: {rings_requested}. "
+            f"Input: {input_label}. Rings requested: {rings_requested}. "
             f"Parcels found: {parcel_count}. Unique owners: {owner_count}."
         )
         summary = await self._chat(prompt)
@@ -74,12 +74,12 @@ class LLMService:
         return text if text else None
 
     async def _chat(self, prompt: str) -> str:
-        provider = self._config.provider.lower().strip()
-        if provider == "openai":
+        vendor = self._config.vendor.lower().strip()
+        if vendor == "openai":
             return await self._chat_openai(prompt)
-        if provider == "openrouter":
+        if vendor == "openrouter":
             return await self._chat_openrouter(prompt)
-        raise RuntimeError(f"Unsupported LLM provider: {self._config.provider}")
+        raise RuntimeError(f"Unsupported LLM vendor: {self._config.vendor}")
 
     async def _chat_openai(self, prompt: str) -> str:
         api_key = self._config.openai_api_key or ""

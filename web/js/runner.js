@@ -1,91 +1,86 @@
 // Browser port of backend/services/runner.py ParcelLookupRunner.
 //
-// Phase 2: in-browser IndexedDB cache + run history. Owner normalization still
-// uses the deterministic fallback (LLM is Phase 4). The run object matches the
-// shape the old /api/lookup response returned.
+// One runner per county. A run resolves a seed parcel (from an address, a map
+// point or an already-selected parcel) and expands adjacency rings around it.
+// The IndexedDB store caches runs; every cache read is scoped to this county.
 
-import { RequestBudget } from "./util.js";
+import { BudgetExceededError, RequestBudget } from "./util.js";
+import { pointInGeometry } from "./geometry.js";
+import {
+  CAPPED_BY,
+  MATCHED_BY,
+  RUN_STATUS,
+  addressInput,
+  normalizeText,
+  parcelInput,
+  pointInput,
+  toParcel,
+  toRun,
+  toRunParcel,
+} from "./model.js";
 
 const UNSET = Symbol("unset");
 
 export class ParcelLookupRunner {
-  constructor(service, settings, county, store = null, llm = null) {
-    this._service = service;
+  constructor(provider, settings, store = null, llm = null) {
+    this._provider = provider;
     this._settings = settings;
-    this._provider = service.sourceLabel;
-    this._county = county;
+    this._county = provider.county;
     this._store = store;
     this._llm = llm;
   }
 
   async runLookup({ address, rings, useLlm = false }) {
     await this._cleanup();
-    const normalizedInput = this._normalizeAlias(address);
+    const normalizedInput = normalizeText(address);
+    const input = addressInput(address);
 
     if (this._store) {
-      const cached = await this._getCachedRunForAddress(normalizedInput, rings, address);
+      const cached = await this._getCachedRunForAddress(normalizedInput, rings, input);
       if (cached) return cached;
     }
 
     return this._runCore({
-      inputLabel: address,
+      input,
       rings,
       useLlm,
       notFoundError: "No parcel match found for the provided address.",
       inputAlias: normalizedInput,
-      seedResolver: (budget) => this._service.lookup(address, budget),
+      seedResolver: (budget) => this._provider.lookup(address, budget),
     });
   }
 
   async runLookupFromPoint({ lat, lon, rings, useLlm = false }) {
     await this._cleanup();
-    const inputLabel = `POINT(${lat.toFixed(6)}, ${lon.toFixed(6)})`;
+    const input = pointInput(lat, lon);
+    const notFoundError = "No parcel found at clicked map location.";
+    const seedResolver = (budget) => this._provider.lookupByPoint({ lon, lat, budget });
 
     if (this._store) {
       const localSeed = await this._resolveSeedFromLocalCache(lon, lat);
       if (localSeed && localSeed.parcel_id) {
         const cached = await this._safeRecentRun(localSeed.parcel_id, rings);
-        if (cached) {
-          return this._buildCachedRunResponse(cached, rings, inputLabel, localSeed.parcel_id);
-        }
-        return this._runCore({
-          inputLabel,
-          rings,
-          useLlm,
-          notFoundError: "No parcel found at clicked map location.",
-          inputAlias: null,
-          seedResolver: (budget) => this._service.lookupByPoint({ lon, lat, budget }),
-          preResolvedSeed: localSeed,
-        });
+        if (cached) return this._buildCachedRunResponse(cached, rings, input, localSeed.parcel_id);
+        return this._runCore({ input, rings, useLlm, notFoundError, seedResolver, preResolvedSeed: localSeed });
       }
     }
 
-    const providerSeed = await this._service.lookupByPoint({
+    const providerSeed = await this._provider.lookupByPoint({
       lon,
       lat,
       budget: new RequestBudget(this._settings.maxRequests),
     });
     if (this._store && providerSeed && providerSeed.parcel_id) {
       const cached = await this._safeRecentRun(providerSeed.parcel_id, rings);
-      if (cached) {
-        return this._buildCachedRunResponse(cached, rings, inputLabel, providerSeed.parcel_id);
-      }
+      if (cached) return this._buildCachedRunResponse(cached, rings, input, providerSeed.parcel_id);
     }
 
-    return this._runCore({
-      inputLabel,
-      rings,
-      useLlm,
-      notFoundError: "No parcel found at clicked map location.",
-      inputAlias: null,
-      seedResolver: (budget) => this._service.lookupByPoint({ lon, lat, budget }),
-      preResolvedSeed: providerSeed,
-    });
+    return this._runCore({ input, rings, useLlm, notFoundError, seedResolver, preResolvedSeed: providerSeed });
   }
 
   // Resolve a single parcel at a point without expanding rings. Returns a
-  // parcel-shaped object (ring 0, seed) so the UI can accumulate map clicks
-  // without triggering any neighbor lookup.
+  // run parcel (ring 0, seed) so the UI can accumulate map clicks without
+  // triggering any neighbor lookup.
   async lookupSeedByPoint({ lat, lon }) {
     let record = null;
     if (this._store) {
@@ -96,159 +91,66 @@ export class ParcelLookupRunner {
       }
     }
     if (!record || !record.parcel_id) {
-      record = await this._service.lookupByPoint({
+      record = await this._provider.lookupByPoint({
         lon,
         lat,
         budget: new RequestBudget(this._settings.maxRequests),
       });
     }
     if (!record || !record.parcel_id) return null;
-    return {
-      parcel_id: record.parcel_id,
-      owner_name: record.owner_name || "",
-      normalized_owner_name: this._normalizeOwner(record.owner_name),
-      site_address: record.site_address || "",
-      market_value: record.market_value ?? null,
-      market_value_year: record.market_value_year || "",
-      land_use: record.land_use || "",
-      geometry: record.geometry,
-      source: record.source || this._provider,
-      matched_by: record.matched_by || "map_click_intersect",
-      ring_number: 0,
-      is_seed: true,
-    };
+    return toRunParcel(record, { ring_number: 0, is_seed: true });
   }
 
   // Expand rings from an already-resolved seed parcel (explicit user action).
   async runLookupFromSeed({ seedParcel, rings, useLlm = false }) {
     await this._cleanup();
-    const inputLabel = `PARCEL(${seedParcel.parcel_id || ""})`;
+    const input = parcelInput(seedParcel.parcel_id || "");
     if (this._store && seedParcel.parcel_id) {
       const cached = await this._safeRecentRun(seedParcel.parcel_id, rings);
-      if (cached) {
-        return this._buildCachedRunResponse(cached, rings, inputLabel, seedParcel.parcel_id);
-      }
+      if (cached) return this._buildCachedRunResponse(cached, rings, input, seedParcel.parcel_id);
     }
     return this._runCore({
-      inputLabel,
+      input,
       rings,
       useLlm,
       notFoundError: "No parcel found for this seed.",
-      inputAlias: null,
       seedResolver: () => Promise.resolve(seedParcel),
       preResolvedSeed: seedParcel,
     });
   }
 
-  async _runCore({
-    inputLabel,
-    rings,
-    useLlm = false,
-    notFoundError,
-    inputAlias,
-    seedResolver,
-    preResolvedSeed = UNSET,
-  }) {
+  async _runCore({ input, rings, useLlm = false, notFoundError, inputAlias = null, seedResolver, preResolvedSeed = UNSET }) {
     const createdAt = new Date().toISOString();
     const budget = new RequestBudget(this._settings.maxRequests);
     const llmEnabled = Boolean(useLlm && this._llm && this._llm.isAvailable);
+    const base = { input, rings_requested: rings, created_at: createdAt };
 
     try {
       const seed = preResolvedSeed === UNSET ? await seedResolver(budget) : preResolvedSeed;
       if (!seed) {
-        return this._buildRun({
-          inputLabel,
-          rings,
-          status: "not_found",
-          seedParcelId: null,
-          error: notFoundError,
-          parcels: [],
-          createdAt,
-        });
+        return this._buildRun({ ...base, status: RUN_STATUS.NOT_FOUND, error: notFoundError });
       }
       if (!seed.parcel_id) {
         throw new Error("Provider returned a parcel match without a parcel ID.");
       }
 
-      const parcelsWithRing = [[seed, 0, true]];
-      const seen = new Set([seed.parcel_id]);
-      let frontier = [seed];
-      let status = "completed";
+      const { found, cappedBy } = await this._expandRings(seed, rings, budget);
+      const parcels = await this._normalizeOwners(found, llmEnabled);
 
-      for (let ring = 1; ring <= rings; ring += 1) {
-        const next = [];
-        for (const baseParcel of frontier) {
-          const neighbors = await this._service.queryAdjacent(baseParcel.geometry, {
-            budget,
-            excludeIds: seen,
-            limit: this._settings.adjacentLimitPerParcel,
-          });
-          for (const neighbor of neighbors) {
-            if (!neighbor.parcel_id || seen.has(neighbor.parcel_id)) continue;
-            seen.add(neighbor.parcel_id);
-            next.push(neighbor);
-            if (seen.size >= this._settings.maxParcels) {
-              status = "capped";
-              break;
-            }
-          }
-          if (status === "capped") break;
-        }
-        if (!next.length) break;
-
-        const deduped = new Map(next.map((item) => [item.parcel_id, item]));
-        const uniqueNext = [...deduped.values()];
-        for (const parcel of uniqueNext) parcelsWithRing.push([parcel, ring, false]);
-        frontier = uniqueNext;
-        if (status === "capped") break;
-      }
-
-      const normalizeCache = new Map();
-      let llmCount = 0;
-      const parcels = [];
-      for (const [parcel, ring, isSeed] of parcelsWithRing) {
-        let normalizedOwner = this._normalizeOwner(parcel.owner_name);
-        if (llmEnabled) {
-          const ownerKey = parcel.owner_name.trim();
-          if (normalizeCache.has(ownerKey)) {
-            normalizedOwner = normalizeCache.get(ownerKey);
-          } else if (ownerKey && llmCount < this._settings.maxLlmNormalizations) {
-            const candidate = await this._llm.normalizeOwnerName(ownerKey);
-            normalizedOwner = candidate.trim() || normalizedOwner;
-            normalizeCache.set(ownerKey, normalizedOwner);
-            llmCount += 1;
-          }
-        }
-        parcels.push({
-          parcel_id: parcel.parcel_id,
-          owner_name: parcel.owner_name,
-          normalized_owner_name: normalizedOwner,
-          site_address: parcel.site_address,
-          market_value: parcel.market_value ?? null,
-          market_value_year: parcel.market_value_year || "",
-          land_use: parcel.land_use || "",
-          geometry: parcel.geometry,
-          source: parcel.source,
-          matched_by: parcel.matched_by,
-          ring_number: ring,
-          is_seed: isSeed,
-        });
-      }
-
-      const run = this._buildRun({
-        inputLabel,
-        rings,
-        status,
-        seedParcelId: seed.parcel_id,
-        error: null,
-        parcels,
-        createdAt,
-        llmEnabled,
-      });
+      const run = this._buildRun(
+        {
+          ...base,
+          status: cappedBy ? RUN_STATUS.CAPPED : RUN_STATUS.COMPLETED,
+          capped_by: cappedBy,
+          seed_parcel_id: seed.parcel_id,
+          llm_enabled: llmEnabled,
+        },
+        parcels
+      );
       run.summary = this._deterministicSummary(run);
       if (llmEnabled) {
         const llmSummary = await this._llm.summarizeLookup({
-          inputAddress: inputLabel,
+          inputLabel: run.input_label,
           ringsRequested: rings,
           parcelCount: run.parcel_count,
           ownerCount: run.owner_count,
@@ -269,15 +171,77 @@ export class ParcelLookupRunner {
       return run;
     } catch (err) {
       return this._buildRun({
-        inputLabel,
-        rings,
-        status: "failed",
-        seedParcelId: null,
+        ...base,
+        status: RUN_STATUS.FAILED,
         error: String(err && err.message ? err.message : err),
-        parcels: [],
-        createdAt,
       });
     }
+  }
+
+  // Breadth-first adjacency expansion. Returns [{parcel, ring, isSeed}] and,
+  // when a limit stopped it early, which one. Running out of request budget
+  // keeps what was found, like reaching maxParcels.
+  async _expandRings(seed, rings, budget) {
+    const found = [{ parcel: seed, ring: 0, isSeed: true }];
+    const seen = new Set([seed.parcel_id]);
+    let frontier = [seed];
+    let cappedBy = null;
+
+    for (let ring = 1; ring <= rings && !cappedBy; ring += 1) {
+      const next = [];
+      for (const baseParcel of frontier) {
+        let neighbors;
+        try {
+          neighbors = await this._provider.queryAdjacent(baseParcel.geometry, {
+            budget,
+            excludeIds: seen,
+            limit: this._settings.adjacentLimitPerParcel,
+          });
+        } catch (err) {
+          if (!(err instanceof BudgetExceededError)) throw err;
+          cappedBy = CAPPED_BY.REQUEST_BUDGET;
+          break;
+        }
+        for (const neighbor of neighbors) {
+          if (!neighbor.parcel_id || seen.has(neighbor.parcel_id)) continue;
+          seen.add(neighbor.parcel_id);
+          next.push(neighbor);
+          if (seen.size >= this._settings.maxParcels) {
+            cappedBy = CAPPED_BY.MAX_PARCELS;
+            break;
+          }
+        }
+        if (cappedBy) break;
+      }
+      for (const parcel of next) found.push({ parcel, ring, isSeed: false });
+      if (!next.length) break;
+      frontier = next;
+    }
+    return { found, cappedBy };
+  }
+
+  // Run parcels with normalized owners: the deterministic normalization, or
+  // the LLM's (up to maxLlmNormalizations distinct owners) when enabled.
+  async _normalizeOwners(found, llmEnabled) {
+    const llmCache = new Map();
+    const parcels = [];
+    for (const { parcel, ring, isSeed } of found) {
+      let normalizedOwner = normalizeText(parcel.owner_name);
+      const ownerKey = String(parcel.owner_name || "").trim();
+      if (llmEnabled && ownerKey) {
+        if (llmCache.has(ownerKey)) {
+          normalizedOwner = llmCache.get(ownerKey);
+        } else if (llmCache.size < this._settings.maxLlmNormalizations) {
+          const candidate = await this._llm.normalizeOwnerName(ownerKey);
+          normalizedOwner = candidate.trim() || normalizedOwner;
+          llmCache.set(ownerKey, normalizedOwner);
+        }
+      }
+      parcels.push(
+        toRunParcel(parcel, { ring_number: ring, is_seed: isSeed, normalized_owner_name: normalizedOwner })
+      );
+    }
+    return parcels;
   }
 
   // ---- cache helpers (port of runner.py) --------------------------------
@@ -291,11 +255,12 @@ export class ParcelLookupRunner {
     }
   }
 
-  // Best-effort cache read for a seed parcel; never throws.
+  // Best-effort cache read for a seed parcel in this county; never throws.
   async _safeRecentRun(seedParcelId, rings) {
     if (!this._store) return null;
     try {
       return await this._store.getRecentRunForSeedParcel(
+        this._county,
         seedParcelId,
         rings,
         this._settings.retentionDays
@@ -306,10 +271,11 @@ export class ParcelLookupRunner {
     }
   }
 
-  async _getCachedRunForAddress(normalizedInput, rings, inputAddress) {
+  async _getCachedRunForAddress(normalizedInput, rings, input) {
     let parcelId = null;
     try {
       parcelId = await this._store.resolveAddressAlias(
+        this._county,
         normalizedInput,
         this._settings.retentionDays
       );
@@ -320,43 +286,31 @@ export class ParcelLookupRunner {
     if (!parcelId) return null;
     const cached = await this._safeRecentRun(parcelId, rings);
     if (!cached) return null;
-    return this._buildCachedRunResponse(cached, rings, inputAddress, parcelId);
+    return this._buildCachedRunResponse(cached, rings, input, parcelId);
   }
 
-  _buildCachedRunResponse(cachedRun, rings, inputLabel, seedParcelId) {
-    const trimmed = this._trimRunToRings(cachedRun, rings);
-    trimmed.input_address = inputLabel;
-    trimmed.seed_parcel_id = trimmed.seed_parcel_id || seedParcelId;
-    trimmed.from_cache = true;
-    const base = (trimmed.summary || "").trim();
-    trimmed.summary = base
-      ? `${base} Loaded from 30-day local cache.`
-      : "Loaded from 30-day local cache.";
-    return trimmed;
-  }
-
-  _trimRunToRings(run, rings) {
-    const parcels = (run.parcels || []).filter(
-      (p) => (parseInt(p.ring_number, 10) || 0) <= rings
+  // A cached run trimmed to the requested rings, relabeled with this input.
+  _buildCachedRunResponse(cachedRun, rings, input, seedParcelId) {
+    const parcels = cachedRun.parcels.filter((p) => (parseInt(p.ring_number, 10) || 0) <= rings);
+    const base = (cachedRun.summary || "").trim();
+    return toRun(
+      {
+        ...cachedRun,
+        input,
+        input_label: undefined,
+        rings_requested: rings,
+        seed_parcel_id: cachedRun.seed_parcel_id || seedParcelId,
+        summary: base ? `${base} Loaded from 30-day local cache.` : "Loaded from 30-day local cache.",
+        from_cache: true,
+      },
+      parcels
     );
-    const ownerKeys = new Set();
-    for (const p of parcels) {
-      const key = (p.normalized_owner_name || p.owner_name || "").trim().toUpperCase();
-      if (key) ownerKeys.add(key);
-    }
-    return {
-      ...run,
-      parcels,
-      rings_requested: rings,
-      parcel_count: parcels.length,
-      owner_count: ownerKeys.size,
-    };
   }
 
   _computeAliases(seed, inputAlias) {
     const aliases = [];
     if (inputAlias) aliases.push(inputAlias);
-    const siteAlias = this._normalizeAlias(seed.site_address);
+    const siteAlias = normalizeText(seed.site_address);
     if (siteAlias) aliases.push(siteAlias);
     return aliases;
   }
@@ -364,95 +318,27 @@ export class ParcelLookupRunner {
   async _resolveSeedFromLocalCache(lon, lat) {
     let candidates = [];
     try {
-      candidates = await this._store.listRecentCachedParcels(this._settings.retentionDays);
+      candidates = await this._store.listRecentCachedParcels(this._county, this._settings.retentionDays);
     } catch (err) {
       console.warn("local cache scan failed:", err);
       return null;
     }
-    for (const item of candidates) {
-      if (item.geometry && this._pointInGeometry(lon, lat, item.geometry)) {
-        return {
-          parcel_id: String(item.parcel_id || "").trim(),
-          owner_name: String(item.owner_name || "").trim(),
-          site_address: String(item.site_address || "").trim(),
-          market_value: item.market_value ?? null,
-          market_value_year: item.market_value_year || "",
-          land_use: item.land_use || "",
-          geometry: item.geometry,
-          source: String(item.source || "local_cache"),
-          matched_by: "local_cache_intersect",
-        };
-      }
-    }
-    return null;
+    const hit = candidates.find((item) => item.geometry && pointInGeometry(lon, lat, item.geometry));
+    return hit ? toParcel(hit, { matched_by: MATCHED_BY.CACHE_POINT }) : null;
   }
 
-  // ---- point-in-polygon (ray casting), port of runner.py ----------------
+  // ---- run assembly ------------------------------------------------------
 
-  _pointInGeometry(lon, lat, geometry) {
-    if (!geometry || geometry.type !== "Polygon") return false;
-    const coords = geometry.coordinates;
-    if (!Array.isArray(coords) || !coords.length) return false;
-    const outer = coords[0];
-    if (!Array.isArray(outer) || !this._pointInRing(lon, lat, outer)) return false;
-    for (let i = 1; i < coords.length; i += 1) {
-      if (Array.isArray(coords[i]) && this._pointInRing(lon, lat, coords[i])) return false;
-    }
-    return true;
-  }
-
-  _pointInRing(lon, lat, ring) {
-    const count = ring.length;
-    if (count < 3) return false;
-    let inside = false;
-    let j = count - 1;
-    for (let i = 0; i < count; i += 1) {
-      const xi = ring[i][0];
-      const yi = ring[i][1];
-      const xj = ring[j][0];
-      const yj = ring[j][1];
-      const intersects =
-        yi > lat !== yj > lat &&
-        lon < ((xj - xi) * (lat - yi)) / ((yj - yi) || 1e-12) + xi;
-      if (intersects) inside = !inside;
-      j = i;
-    }
-    return inside;
-  }
-
-  // ---- run assembly + normalization -------------------------------------
-
-  _buildRun({ inputLabel, rings, status, seedParcelId, error, parcels, createdAt, llmEnabled = false }) {
-    const ownerKeys = new Set();
-    for (const parcel of parcels) {
-      const key = (parcel.normalized_owner_name || parcel.owner_name || "").trim().toUpperCase();
-      if (key) ownerKeys.add(key);
-    }
-    return {
-      id: null,
-      input_address: inputLabel,
-      rings_requested: rings,
-      status,
-      provider: this._provider,
-      llm_enabled: llmEnabled,
-      seed_parcel_id: seedParcelId,
-      summary: null,
-      error,
-      created_at: createdAt,
-      completed_at: new Date().toISOString(),
-      parcel_count: parcels.length,
-      owner_count: ownerKeys.size,
-      parcels,
-      from_cache: false,
-    };
-  }
-
-  _normalizeOwner(owner) {
-    return String(owner || "").trim().split(/\s+/).join(" ").toUpperCase();
-  }
-
-  _normalizeAlias(address) {
-    return String(address || "").trim().toUpperCase().split(/\s+/).join(" ");
+  _buildRun(fields, parcels = []) {
+    return toRun(
+      {
+        county: this._county,
+        source_id: this._provider.sourceId,
+        completed_at: new Date().toISOString(),
+        ...fields,
+      },
+      parcels
+    );
   }
 
   _deterministicSummary(run) {
@@ -460,9 +346,15 @@ export class ParcelLookupRunner {
     for (const parcel of run.parcels) {
       ringCount = Math.max(ringCount, parseInt(parcel.ring_number, 10) || 0);
     }
+    const capped =
+      run.capped_by === CAPPED_BY.REQUEST_BUDGET
+        ? " Stopped early: request budget used up."
+        : run.capped_by === CAPPED_BY.MAX_PARCELS
+          ? " Stopped early: parcel limit reached."
+          : "";
     return (
-      `Lookup for ${run.input_address} returned ${run.parcel_count} parcels ` +
-      `across rings 0-${ringCount} with ${run.owner_count} unique owners.`
+      `Lookup for ${run.input_label} returned ${run.parcel_count} parcels ` +
+      `across rings 0-${ringCount} with ${run.owner_count} unique owners.${capped}`
     );
   }
 }

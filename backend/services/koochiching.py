@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from backend.services.base import BaseParcelService, street_prefix
+from backend.services.base import BaseParcelProvider, street_prefix
 
 
 KOOCHICHING_QUERY_URL = (
@@ -12,12 +12,13 @@ KOOCHICHING_QUERY_URL = (
 )
 
 
-class KoochichingParcelService(BaseParcelService):
+class KoochichingParcelProvider(BaseParcelProvider):
 
     endpoint_url = KOOCHICHING_QUERY_URL
-    source_label = "koochiching_county_arcgis"
+    source_id = "koochiching_county_arcgis"
     parcel_id_field = "PARCEL_ID"
     owner_field = "OWNNAME"
+    land_use_field = "CLASSCODE1"
     address_field = "ADDR_1"
     extra_out_fields = ["CITY", "ZIP_CODE_5"]
     adjacent_spatial_rel = "esriSpatialRelIntersects"

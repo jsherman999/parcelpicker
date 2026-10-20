@@ -3,12 +3,22 @@ from __future__ import annotations
 import logging
 import os
 from collections.abc import Awaitable, Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from time import perf_counter
+from typing import Any
 
 from backend.db import ParcelDatabase
-from backend.services.base import BaseParcelService, ParcelRecord, RequestBudget
+from backend.services.base import BaseParcelProvider, BudgetExceededError, RequestBudget
+from backend.services.geometry import point_in_geometry
 from backend.services.llm import LLMService
+from backend.services.parcel import (
+    ParcelRecord,
+    address_input,
+    count_owners,
+    input_label,
+    normalize_text,
+    point_input,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -29,43 +39,41 @@ class ParcelLookupRunner:
         self,
         *,
         db: ParcelDatabase,
-        parcel_service: BaseParcelService,
+        provider: BaseParcelProvider,
         llm_service: LLMService,
         settings: LookupSettings,
     ) -> None:
         self._db = db
-        self._parcel_service = parcel_service
+        self._provider = provider
+        self._county = provider.county
         self._llm_service = llm_service
         self._settings = settings
-        self._provider = parcel_service.source_label
 
     async def run_lookup(
         self,
         *,
-        input_address: str,
+        address: str,
         rings_requested: int,
         use_llm: bool,
     ) -> dict:
         self._db.cleanup_expired_data(retention_days=self._settings.retention_days)
-        normalized_input = self._normalize_address_for_alias(input_address)
+        run_input = address_input(address)
+        normalized_input = normalize_text(address)
         cached = self._get_cached_run_for_address(
             normalized_input=normalized_input,
             rings_requested=rings_requested,
-            input_address=input_address,
+            run_input=run_input,
         )
         if cached is not None:
             return cached
 
         return await self._run_lookup_core(
-            input_label=input_address,
+            run_input=run_input,
             rings_requested=rings_requested,
             use_llm=use_llm,
             not_found_error="No parcel match found for the provided address.",
             input_alias=normalized_input,
-            seed_resolver=lambda budget: self._parcel_service.lookup(
-                input_address,
-                budget=budget,
-            ),
+            seed_resolver=lambda budget: self._provider.lookup(address, budget=budget),
         )
 
     async def run_lookup_from_point(
@@ -77,74 +85,39 @@ class ParcelLookupRunner:
         use_llm: bool,
     ) -> dict:
         self._db.cleanup_expired_data(retention_days=self._settings.retention_days)
-        input_label = f"POINT({lat:.6f}, {lon:.6f})"
+        run_input = point_input(lat=lat, lon=lon)
 
-        local_seed = self._resolve_seed_from_local_cache(lon=lon, lat=lat)
-        if local_seed is not None and local_seed.parcel_id:
-            cached = self._db.get_recent_run_for_seed_parcel(
-                seed_parcel_id=local_seed.parcel_id,
-                min_rings=rings_requested,
-                max_age_days=self._settings.retention_days,
-            )
+        def resolve(budget: RequestBudget) -> Awaitable[ParcelRecord | None]:
+            return self._provider.lookup_by_point(lon=lon, lat=lat, budget=budget)
+
+        seed = self._resolve_seed_from_local_cache(lon=lon, lat=lat)
+        if seed is None or not seed.parcel_id:
+            seed = await resolve(RequestBudget(max_requests=self._settings.max_requests))
+
+        if seed is not None and seed.parcel_id:
+            cached = self._recent_run(seed.parcel_id, rings_requested)
             if cached is not None:
                 return self._build_cached_run_response(
                     cached_run=cached,
                     rings_requested=rings_requested,
-                    input_label=input_label,
-                    seed_parcel_id=local_seed.parcel_id,
-                )
-
-            return await self._run_lookup_core(
-                input_label=input_label,
-                rings_requested=rings_requested,
-                use_llm=use_llm,
-                not_found_error="No parcel found at clicked map location.",
-                input_alias=None,
-                seed_resolver=lambda budget: self._parcel_service.lookup_by_point(
-                    lon=lon,
-                    lat=lat,
-                    budget=budget,
-                ),
-                pre_resolved_seed=local_seed,
-            )
-
-        provider_seed = await self._parcel_service.lookup_by_point(
-            lon=lon,
-            lat=lat,
-            budget=RequestBudget(max_requests=self._settings.max_requests),
-        )
-        if provider_seed is not None and provider_seed.parcel_id:
-            cached = self._db.get_recent_run_for_seed_parcel(
-                seed_parcel_id=provider_seed.parcel_id,
-                min_rings=rings_requested,
-                max_age_days=self._settings.retention_days,
-            )
-            if cached is not None:
-                return self._build_cached_run_response(
-                    cached_run=cached,
-                    rings_requested=rings_requested,
-                    input_label=input_label,
-                    seed_parcel_id=provider_seed.parcel_id,
+                    run_input=run_input,
+                    seed_parcel_id=seed.parcel_id,
                 )
 
         return await self._run_lookup_core(
-            input_label=input_label,
+            run_input=run_input,
             rings_requested=rings_requested,
             use_llm=use_llm,
             not_found_error="No parcel found at clicked map location.",
             input_alias=None,
-            seed_resolver=lambda budget: self._parcel_service.lookup_by_point(
-                lon=lon,
-                lat=lat,
-                budget=budget,
-            ),
-            pre_resolved_seed=provider_seed,
+            seed_resolver=resolve,
+            pre_resolved_seed=seed,
         )
 
     async def _run_lookup_core(
         self,
         *,
-        input_label: str,
+        run_input: dict[str, Any],
         rings_requested: int,
         use_llm: bool,
         not_found_error: str,
@@ -153,20 +126,23 @@ class ParcelLookupRunner:
         pre_resolved_seed: ParcelRecord | None | object = _UNSET,
     ) -> dict:
         llm_enabled = bool(use_llm and self._llm_service.is_available)
+        label = input_label(run_input)
         run_id = self._db.create_run(
-            input_address=input_label,
+            county=self._county,
+            run_input=run_input,
+            input_label=label,
             rings_requested=rings_requested,
-            provider=self._provider,
+            source_id=self._provider.source_id,
             llm_enabled=llm_enabled,
         )
 
         logger.info(
-            "lookup_started run_id=%s input=%r rings=%s llm=%s provider=%s",
+            "lookup_started run_id=%s county=%s input=%r rings=%s llm=%s",
             run_id,
-            input_label,
+            self._county,
+            label,
             rings_requested,
             llm_enabled,
-            self._provider,
         )
 
         budget = RequestBudget(max_requests=self._settings.max_requests)
@@ -191,48 +167,15 @@ class ParcelLookupRunner:
             if not seed.parcel_id:
                 raise RuntimeError("Provider returned a parcel match without a parcel ID.")
 
-            parcels_with_ring: list[tuple[ParcelRecord, int, bool]] = [(seed, 0, True)]
-            seen_ids: set[str] = {seed.parcel_id} if seed.parcel_id else set()
-
-            frontier = [seed]
-            status = "completed"
-
-            for ring in range(1, rings_requested + 1):
-                next_frontier: list[ParcelRecord] = []
-                for base_parcel in frontier:
-                    neighbors = await self._parcel_service.query_adjacent(
-                        base_parcel.geometry,
-                        budget=budget,
-                        exclude_ids=seen_ids,
-                        limit=self._settings.adjacent_limit_per_parcel,
-                    )
-                    for neighbor in neighbors:
-                        if not neighbor.parcel_id:
-                            continue
-                        if neighbor.parcel_id in seen_ids:
-                            continue
-                        seen_ids.add(neighbor.parcel_id)
-                        next_frontier.append(neighbor)
-                        if len(seen_ids) >= self._settings.max_parcels:
-                            status = "capped"
-                            break
-                    if status == "capped":
-                        break
-                if not next_frontier:
-                    break
-
-                deduped = {item.parcel_id: item for item in next_frontier}
-                unique_next = list(deduped.values())
-                for parcel in unique_next:
-                    parcels_with_ring.append((parcel, ring, False))
-                frontier = unique_next
-                if status == "capped":
-                    break
+            parcels_with_ring, capped_by = await self._expand_rings(
+                seed, rings_requested=rings_requested, budget=budget
+            )
+            status = "capped" if capped_by else "completed"
 
             normalize_cache: dict[str, str] = {}
             llm_count = 0
             for parcel, ring, is_seed in parcels_with_ring:
-                normalized_owner = self._normalize_owner_fallback(parcel.owner_name)
+                normalized_owner = normalize_text(parcel.owner_name)
                 if llm_enabled:
                     owner_key = parcel.owner_name.strip()
                     if owner_key in normalize_cache:
@@ -243,27 +186,21 @@ class ParcelLookupRunner:
                         normalize_cache[owner_key] = normalized_owner
                         llm_count += 1
 
-                self._db.upsert_parcel(
-                    parcel_id=parcel.parcel_id,
-                    owner_name=parcel.owner_name,
-                    normalized_owner_name=normalized_owner,
-                    site_address=parcel.site_address,
-                    geometry=parcel.geometry,
-                    source=parcel.source,
-                )
+                self._db.upsert_parcel(parcel)
                 self._db.add_run_parcel(
                     run_id=run_id,
                     parcel_id=parcel.parcel_id,
                     ring_number=ring,
                     is_seed=is_seed,
                     matched_by=parcel.matched_by,
+                    normalized_owner_name=normalized_owner,
                 )
 
             run = self._must_get_run(run_id)
-            summary = self._deterministic_summary(run)
+            summary = self._deterministic_summary(run, capped_by=capped_by)
             if llm_enabled:
                 llm_summary = await self._llm_service.summarize_lookup(
-                    input_address=input_label,
+                    input_label=label,
                     rings_requested=rings_requested,
                     parcel_count=run["parcel_count"],
                     owner_count=run["owner_count"],
@@ -274,6 +211,7 @@ class ParcelLookupRunner:
             self._db.complete_run(
                 run_id,
                 status=status,
+                capped_by=capped_by,
                 seed_parcel_id=seed.parcel_id,
                 summary=summary,
                 error=None,
@@ -283,9 +221,11 @@ class ParcelLookupRunner:
             completed["from_cache"] = False
             duration_ms = int((perf_counter() - started) * 1000)
             logger.info(
-                "lookup_completed run_id=%s status=%s parcels=%s owners=%s requests=%s duration_ms=%s",
+                "lookup_completed run_id=%s status=%s capped_by=%s parcels=%s owners=%s "
+                "requests=%s duration_ms=%s",
                 run_id,
                 status,
+                capped_by,
                 completed["parcel_count"],
                 completed["owner_count"],
                 budget.used_requests,
@@ -306,66 +246,111 @@ class ParcelLookupRunner:
             failed_run["from_cache"] = False
             return failed_run
 
+    async def _expand_rings(
+        self,
+        seed: ParcelRecord,
+        *,
+        rings_requested: int,
+        budget: RequestBudget,
+    ) -> tuple[list[tuple[ParcelRecord, int, bool]], str | None]:
+        """Breadth-first adjacency rings around the seed.
+
+        Returns the parcels with their ring numbers and what capped the run,
+        if anything: "max_parcels", or "request_budget" when the budget ran
+        out mid-expansion (the parcels found so far are kept).
+        """
+        parcels_with_ring: list[tuple[ParcelRecord, int, bool]] = [(seed, 0, True)]
+        seen_ids: set[str] = {seed.parcel_id}
+        frontier = [seed]
+        capped_by: str | None = None
+
+        for ring in range(1, rings_requested + 1):
+            next_frontier: list[ParcelRecord] = []
+            try:
+                for base_parcel in frontier:
+                    neighbors = await self._provider.query_adjacent(
+                        base_parcel.geometry,
+                        budget=budget,
+                        exclude_ids=seen_ids,
+                        limit=self._settings.adjacent_limit_per_parcel,
+                    )
+                    for neighbor in neighbors:
+                        if not neighbor.parcel_id or neighbor.parcel_id in seen_ids:
+                            continue
+                        seen_ids.add(neighbor.parcel_id)
+                        next_frontier.append(neighbor)
+                        if len(seen_ids) >= self._settings.max_parcels:
+                            capped_by = "max_parcels"
+                            break
+                    if capped_by:
+                        break
+            except BudgetExceededError:
+                capped_by = "request_budget"
+
+            for parcel in next_frontier:
+                parcels_with_ring.append((parcel, ring, False))
+            if capped_by or not next_frontier:
+                break
+            frontier = next_frontier
+
+        return parcels_with_ring, capped_by
+
     def _must_get_run(self, run_id: int) -> dict:
         run = self._db.get_run(run_id)
         if run is None:
             raise RuntimeError(f"Run {run_id} not found after write.")
         return run
 
-    def _normalize_owner_fallback(self, owner: str) -> str:
-        cleaned = " ".join(owner.strip().split())
-        return cleaned.upper()
-
-    def _deterministic_summary(self, run: dict) -> str:
-        ring_count = 0
-        for parcel in run.get("parcels", []):
-            ring_count = max(ring_count, int(parcel.get("ring_number", 0)))
-
-        return (
-            f"Lookup for {run['input_address']} returned {run['parcel_count']} parcels "
+    def _deterministic_summary(self, run: dict, *, capped_by: str | None = None) -> str:
+        ring_count = max((int(p.get("ring_number", 0)) for p in run.get("parcels", [])), default=0)
+        summary = (
+            f"Lookup for {run['input_label']} returned {run['parcel_count']} parcels "
             f"across rings 0-{ring_count} with {run['owner_count']} unique owners."
         )
-
-    def _normalize_address_for_alias(self, address: str) -> str:
-        return " ".join(address.strip().upper().split())
+        if capped_by == "max_parcels":
+            summary += " Stopped at the parcel limit."
+        elif capped_by == "request_budget":
+            summary += " Stopped at the request budget."
+        return summary
 
     def _upsert_aliases(self, *, seed: ParcelRecord, input_alias: str | None) -> None:
         if not seed.parcel_id:
             return
+        for alias in (input_alias, normalize_text(seed.site_address)):
+            if alias:
+                self._db.upsert_address_alias(self._county, alias, seed.parcel_id)
 
-        if input_alias:
-            self._db.upsert_address_alias(input_alias, seed.parcel_id)
-
-        site_alias = self._normalize_address_for_alias(seed.site_address)
-        if site_alias:
-            self._db.upsert_address_alias(site_alias, seed.parcel_id)
+    def _recent_run(self, seed_parcel_id: str, rings_requested: int) -> dict | None:
+        return self._db.get_recent_run_for_seed_parcel(
+            county=self._county,
+            seed_parcel_id=seed_parcel_id,
+            min_rings=rings_requested,
+            max_age_days=self._settings.retention_days,
+        )
 
     def _get_cached_run_for_address(
         self,
         *,
         normalized_input: str,
         rings_requested: int,
-        input_address: str,
+        run_input: dict[str, Any],
     ) -> dict | None:
         parcel_id = self._db.resolve_address_alias(
+            self._county,
             normalized_input,
             max_age_days=self._settings.retention_days,
         )
         if not parcel_id:
             return None
 
-        cached = self._db.get_recent_run_for_seed_parcel(
-            seed_parcel_id=parcel_id,
-            min_rings=rings_requested,
-            max_age_days=self._settings.retention_days,
-        )
+        cached = self._recent_run(parcel_id, rings_requested)
         if cached is None:
             return None
 
         return self._build_cached_run_response(
             cached_run=cached,
             rings_requested=rings_requested,
-            input_label=input_address,
+            run_input=run_input,
             seed_parcel_id=parcel_id,
         )
 
@@ -374,11 +359,12 @@ class ParcelLookupRunner:
         *,
         cached_run: dict,
         rings_requested: int,
-        input_label: str,
+        run_input: dict[str, Any],
         seed_parcel_id: str,
     ) -> dict:
         trimmed = self._trim_run_to_rings(cached_run, rings_requested=rings_requested)
-        trimmed["input_address"] = input_label
+        trimmed["input"] = run_input
+        trimmed["input_label"] = input_label(run_input)
         trimmed["from_cache"] = True
 
         base_summary = (trimmed.get("summary") or "").strip()
@@ -388,7 +374,8 @@ class ParcelLookupRunner:
             trimmed["summary"] = "Loaded from 30-day local cache."
 
         logger.info(
-            "lookup_cache_hit seed_parcel=%s rings=%s source_run=%s",
+            "lookup_cache_hit county=%s seed_parcel=%s rings=%s source_run=%s",
+            self._county,
             seed_parcel_id,
             rings_requested,
             trimmed.get("id"),
@@ -396,63 +383,14 @@ class ParcelLookupRunner:
         return trimmed
 
     def _resolve_seed_from_local_cache(self, *, lon: float, lat: float) -> ParcelRecord | None:
-        candidates = self._db.list_recent_cached_parcels(max_age_days=self._settings.retention_days)
-        for item in candidates:
-            geometry = item.get("geometry")
-            if not geometry:
-                continue
-            if self._point_in_geometry(lon=lon, lat=lat, geometry=geometry):
-                return ParcelRecord(
-                    parcel_id=str(item.get("parcel_id") or "").strip(),
-                    owner_name=str(item.get("owner_name") or "").strip(),
-                    site_address=str(item.get("site_address") or "").strip(),
-                    geometry=geometry,
-                    source=str(item.get("source") or "local_cache"),
-                    matched_by="local_cache_intersect",
-                )
+        candidates = self._db.list_recent_cached_parcels(
+            county=self._county,
+            max_age_days=self._settings.retention_days,
+        )
+        for parcel in candidates:
+            if point_in_geometry(lon, lat, parcel.geometry):
+                return replace(parcel, matched_by="cache_point")
         return None
-
-    def _point_in_geometry(self, *, lon: float, lat: float, geometry: dict) -> bool:
-        if geometry.get("type") != "Polygon":
-            return False
-        coords = geometry.get("coordinates")
-        if not isinstance(coords, list) or not coords:
-            return False
-        return self._point_in_polygon(lon=lon, lat=lat, polygon_coords=coords)
-
-    def _point_in_polygon(
-        self,
-        *,
-        lon: float,
-        lat: float,
-        polygon_coords: list,
-    ) -> bool:
-        outer = polygon_coords[0] if polygon_coords else None
-        if not isinstance(outer, list) or not self._point_in_ring(lon=lon, lat=lat, ring=outer):
-            return False
-
-        for hole in polygon_coords[1:]:
-            if isinstance(hole, list) and self._point_in_ring(lon=lon, lat=lat, ring=hole):
-                return False
-        return True
-
-    def _point_in_ring(self, *, lon: float, lat: float, ring: list) -> bool:
-        inside = False
-        count = len(ring)
-        if count < 3:
-            return False
-
-        j = count - 1
-        for i in range(count):
-            xi, yi = ring[i][0], ring[i][1]
-            xj, yj = ring[j][0], ring[j][1]
-            intersects = ((yi > lat) != (yj > lat)) and (
-                lon < (xj - xi) * (lat - yi) / ((yj - yi) or 1e-12) + xi
-            )
-            if intersects:
-                inside = not inside
-            j = i
-        return inside
 
     def _trim_run_to_rings(self, run: dict, *, rings_requested: int) -> dict:
         trimmed = dict(run)
@@ -464,13 +402,7 @@ class ParcelLookupRunner:
         trimmed["parcels"] = parcels
         trimmed["rings_requested"] = rings_requested
         trimmed["parcel_count"] = len(parcels)
-        trimmed["owner_count"] = len(
-            {
-                (parcel.get("normalized_owner_name") or parcel.get("owner_name") or "").strip().upper()
-                for parcel in parcels
-                if (parcel.get("normalized_owner_name") or parcel.get("owner_name"))
-            }
-        )
+        trimmed["owner_count"] = count_owners(parcels)
         return trimmed
 
 

@@ -1,6 +1,8 @@
 // Browser port of backend/services/llm.py.
-// Config (provider/model/key) is supplied by the user and stored only in this
-// browser's localStorage. Calls go directly to the provider (CORS-verified for
+// Config (vendor/model/key) is supplied by the user and stored only in this
+// browser's localStorage. "Vendor" is the LLM API (OpenAI or OpenRouter), not
+// to be confused with a county's parcel provider. Calls go directly to the
+// vendor (CORS-verified for
 // OpenAI and OpenRouter). Every method degrades gracefully: on missing config
 // or any error it returns the deterministic fallback, so the app never blocks.
 
@@ -9,7 +11,7 @@ const STORAGE_KEY = "pp.llm";
 const OPENAI_CHAT_URL = "https://api.openai.com/v1/chat/completions";
 const OPENROUTER_CHAT_URL = "https://openrouter.ai/api/v1/chat/completions";
 
-const DEFAULTS = { provider: "openai", model: "gpt-4o-mini", apiKey: "", enabled: true };
+const DEFAULTS = { vendor: "openai", model: "gpt-4o-mini", apiKey: "", enabled: true };
 
 export class LLMService {
   constructor() {
@@ -22,7 +24,8 @@ export class LLMService {
       if (raw) {
         const parsed = JSON.parse(raw);
         return {
-          provider: parsed.provider || DEFAULTS.provider,
+          // Saved configs before 0.12 used the key "provider".
+          vendor: parsed.vendor || parsed.provider || DEFAULTS.vendor,
           model: parsed.model || DEFAULTS.model,
           apiKey: parsed.apiKey || "",
           enabled: parsed.enabled !== false,
@@ -48,7 +51,7 @@ export class LLMService {
   }
 
   get isAvailable() {
-    return Boolean(this._config.enabled && this._config.apiKey && this._config.provider);
+    return Boolean(this._config.enabled && this._config.apiKey && this._config.vendor);
   }
 
   async normalizeOwnerName(ownerName) {
@@ -69,13 +72,13 @@ export class LLMService {
     }
   }
 
-  async summarizeLookup({ inputAddress, ringsRequested, parcelCount, ownerCount }) {
+  async summarizeLookup({ inputLabel, ringsRequested, parcelCount, ownerCount }) {
     if (!this.isAvailable) return null;
 
     const prompt =
       "Write a concise 1-2 sentence summary for a parcel lookup run. " +
       "Do not invent facts. " +
-      `Address: ${inputAddress}. Rings requested: ${ringsRequested}. ` +
+      `Lookup input: ${inputLabel}. Rings requested: ${ringsRequested}. ` +
       `Parcels found: ${parcelCount}. Unique owners: ${ownerCount}.`;
     try {
       const text = (await this._chat(prompt)).trim();
@@ -86,14 +89,14 @@ export class LLMService {
   }
 
   async _chat(prompt) {
-    const { provider, model, apiKey } = this._config;
-    const url = provider === "openrouter" ? OPENROUTER_CHAT_URL : OPENAI_CHAT_URL;
+    const { vendor, model, apiKey } = this._config;
+    const url = vendor === "openrouter" ? OPENROUTER_CHAT_URL : OPENAI_CHAT_URL;
 
     const headers = {
       Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
     };
-    if (provider === "openrouter") {
+    if (vendor === "openrouter") {
       headers["HTTP-Referer"] = location.origin;
       headers["X-Title"] = "ParcelPicker";
     }

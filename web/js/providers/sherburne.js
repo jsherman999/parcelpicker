@@ -5,7 +5,7 @@ export class SherburneProvider extends BaseParcelProvider {
   endpointUrl =
     "https://gis.co.sherburne.mn.us/arcgis/rest/services/" +
     "OpenData/Parcels/FeatureServer/0/query";
-  sourceLabel = "sherburne_county_arcgis";
+  sourceId = "sherburne_county_arcgis";
   parcelIdField = "PIN";
   ownerField = "OWNER_NAME";
   valueField = ["EMV_LAND", "EMV_BLDG"];

@@ -5,7 +5,7 @@ export class ChisagoProvider extends BaseParcelProvider {
   endpointUrl =
     "https://gis.chisagocounty.us/arcgis/rest/services/" +
     "AssessmentInformation/TaxParcels/MapServer/0/query";
-  sourceLabel = "chisago_county_arcgis";
+  sourceId = "chisago_county_arcgis";
   parcelIdField = "PIN";
   ownerField = "Ownname";
   valueField = "TotalValue";

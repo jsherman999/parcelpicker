@@ -5,6 +5,7 @@
 // at LandRecords/TaxParcels, whose "Name" field is the parcel number, not the
 // owner.)
 import { BaseParcelProvider, streetPrefix } from "./base.js";
+import { MATCHED_BY } from "../model.js";
 
 const ADDRESS_POINTS_URL =
   "https://gis.blueearthcountymn.gov/server/rest/services/" +
@@ -65,7 +66,7 @@ export class BlueEarthProvider extends BaseParcelProvider {
   endpointUrl =
     "https://gis.blueearthcountymn.gov/server/rest/services/" +
     "LandRecords/TaxParcelsWGS84/MapServer/0/query";
-  sourceLabel = "blueearth_county_arcgis";
+  sourceId = "blueearth_county_arcgis";
   parcelIdField = "SDEDATA.TaxParcel.ParcelNo";
   ownerField = "Ownership.OWNNAME";
   addressField = "Ownership.PHYSADDR";
@@ -109,7 +110,10 @@ export class BlueEarthProvider extends BaseParcelProvider {
     const point = pickAddressMatch(points, input, street, POINT_FIELDS);
     if (point && point.geometry) {
       const parcel = await this._queryByPoint(point.geometry.x, point.geometry.y, budget);
-      if (parcel && String(parcel.attributes?.[this.ownerField] ?? "").trim()) return parcel;
+      if (parcel && String(parcel.attributes?.[this.ownerField] ?? "").trim()) {
+        parcel.matchedBy = MATCHED_BY.ADDRESS_POINT;
+        return parcel;
+      }
     }
 
     // About 10 s: filters on the joined Ownership fields aren't indexed.

@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from backend.services.base import BaseParcelService, RequestBudget
+from backend.services.base import BaseParcelProvider, RequestBudget
 
 
 HENNEPIN_PARCEL_URL = (
@@ -16,19 +16,16 @@ HENNEPIN_ADDRESS_POINTS_URL = (
 )
 
 
-class HennepinParcelService(BaseParcelService):
+class HennepinParcelProvider(BaseParcelProvider):
 
     endpoint_url = HENNEPIN_PARCEL_URL
-    source_label = "hennepin_county_arcgis"
+    source_id = "hennepin_county_arcgis"
     parcel_id_field = "PID"
     owner_field = "OWNER_NM"
+    value_field = "MKT_VAL_TOT"
+    land_use_field = "PR_TYP_NM1"
     address_field = ""
     extra_out_fields = ["HOUSE_NO", "FRAC_HOUSE_NO", "STREET_NM", "MAILING_MUNIC_NM", "ZIP_CD"]
-
-    def _get_outfields(self) -> str:
-        fields = [self.parcel_id_field, self.owner_field]
-        fields.extend(self.extra_out_fields)
-        return ",".join(fields)
 
     def _build_address(self, attrs: dict[str, Any]) -> str:
         house_no = attrs.get("HOUSE_NO")

@@ -5,11 +5,11 @@ from dataclasses import dataclass
 from typing import Any
 
 from backend.services.base import (
-    BaseParcelService,
+    BaseParcelProvider,
     DIRECTIONAL_TOKENS,
-    ParcelRecord,
     RequestBudget,
 )
+from backend.services.parcel import ParcelRecord
 
 
 OLMSTED_BASE_URL = (
@@ -80,13 +80,15 @@ class ParsedAddress:
     zip: str = ""
 
 
-class OlmstedParcelService(BaseParcelService):
+class OlmstedParcelProvider(BaseParcelProvider):
 
     endpoint_url = OLMSTED_QUERY_URL
     e911_url = OLMSTED_E911_URL
-    source_label = "olmsted_county_arcgis"
+    source_id = "olmsted_county_arcgis"
     parcel_id_field = "PIN"
     owner_field = "OwnerName1"
+    value_field = "EMVTotal"
+    land_use_field = "LandUseDes"
     # No single street field: the address is component fields, so the base
     # where builders are replaced (see below) and address_field stays empty.
     address_field = ""
@@ -167,7 +169,7 @@ class OlmstedParcelService(BaseParcelService):
             return None
         feature = await self._query_by_point(point["x"], point["y"], budget=budget)
         if feature is not None:
-            feature["_matched_by"] = "e911_point_intersect"
+            feature["_matched_by"] = "address_point"
         return feature
 
     def _get_address_where_exact(self, cleaned: str) -> str:

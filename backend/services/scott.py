@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from backend.services.base import BaseParcelService, street_prefix
+from backend.services.base import BaseParcelProvider, street_prefix
 
 
 SCOTT_QUERY_URL = (
@@ -12,12 +12,15 @@ SCOTT_QUERY_URL = (
 )
 
 
-class ScottParcelService(BaseParcelService):
+class ScottParcelProvider(BaseParcelProvider):
 
     endpoint_url = SCOTT_QUERY_URL
-    source_label = "scott_county_arcgis"
+    source_id = "scott_county_arcgis"
     parcel_id_field = "PID"
     owner_field = "TaxPayerName"
+    value_field = "EMVTotal"
+    value_year_field = "AssessmentYear"
+    land_use_field = "Classification"
     address_field = "PropertyAddress1"
     extra_out_fields = ["PropertyCity", "PropertyZip"]
     adjacent_spatial_rel = "esriSpatialRelIntersects"

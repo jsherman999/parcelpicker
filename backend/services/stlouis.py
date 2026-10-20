@@ -3,7 +3,8 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from backend.services.base import BaseParcelService
+from backend.services.base import BaseParcelProvider
+from backend.services.parcel import normalize_text
 
 
 STLOUIS_PARCEL_URL = (
@@ -12,12 +13,15 @@ STLOUIS_PARCEL_URL = (
 )
 
 
-class StLouisParcelService(BaseParcelService):
+class StLouisParcelProvider(BaseParcelProvider):
 
     endpoint_url = STLOUIS_PARCEL_URL
-    source_label = "stlouis_county_arcgis"
+    source_id = "stlouis_county_arcgis"
     parcel_id_field = "PRCL_NBR"
     owner_field = "OWNAME"
+    value_field = "EstTotalValue"
+    value_year_field = "ASMT_YR"
+    land_use_field = "TPCLS1"
     address_field = "PHYSADDR"
     extra_out_fields = ["PHYSCITY", "PHYSZIP"]
 
@@ -37,7 +41,7 @@ class StLouisParcelService(BaseParcelService):
             flags=re.IGNORECASE,
         )
         result = re.sub(r"\s+\S+$", "", result.strip())
-        return self._normalize_address(result)
+        return normalize_text(result)
 
     def _build_address(self, attrs: dict[str, Any]) -> str:
         street = str(attrs.get("PHYSADDR") or "").strip()

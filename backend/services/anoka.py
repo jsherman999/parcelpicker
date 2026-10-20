@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from backend.services.base import BaseParcelService
+from backend.services.base import BaseParcelProvider
 
 
 ANOKA_QUERY_URL = (
@@ -12,12 +12,14 @@ ANOKA_QUERY_URL = (
 )
 
 
-class AnokaParcelService(BaseParcelService):
+class AnokaParcelProvider(BaseParcelProvider):
 
     endpoint_url = ANOKA_QUERY_URL
-    source_label = "anoka_county_arcgis"
+    source_id = "anoka_county_arcgis"
     parcel_id_field = "PIN"
     owner_field = "OWNER"
+    value_field = "MKT_VALUE"
+    land_use_field = "PROP_CLASS"
     address_field = "LOC_ADDR"
     extra_out_fields = ["LOC_CITY", "LOC_ZIP"]
 

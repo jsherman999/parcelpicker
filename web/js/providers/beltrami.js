@@ -5,7 +5,7 @@ export class BeltramiProvider extends BaseParcelProvider {
   endpointUrl =
     "https://arcgis.co.beltrami.mn.us/arcgis/rest/services/" +
     "BeltramiData/BeltramiOpenData/MapServer/2/query";
-  sourceLabel = "beltrami_county_arcgis";
+  sourceId = "beltrami_county_arcgis";
   parcelIdField = "PIN";
   ownerField = "OWNERNAME1";
   valueField = "EMV_TTL";

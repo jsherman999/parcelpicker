@@ -5,7 +5,7 @@ export class ScottProvider extends BaseParcelProvider {
   endpointUrl =
     "https://services.arcgis.com/DqIh9WAsIZcPlBEF/arcgis/rest/services/" +
     "Parcels/FeatureServer/0/query";
-  sourceLabel = "scott_county_arcgis";
+  sourceId = "scott_county_arcgis";
   parcelIdField = "PID";
   ownerField = "TaxPayerName";
   valueField = "EMVTotal";

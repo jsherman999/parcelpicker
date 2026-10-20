@@ -33,13 +33,8 @@ export class MnStateSchemaProvider extends BaseParcelProvider {
   ];
   adjacentSpatialRel = "esriSpatialRelIntersects";
 
-  async _queryCounty(params, budget) {
-    if (this.coName) {
-      params = { ...params };
-      const where = params.where || "1=1";
-      params.where = `(${where}) AND CO_NAME = '${this._sqlEscape(this.coName)}'`;
-    }
-    return super._queryCounty(params, budget);
+  _scopeWhere(where) {
+    return this.coName ? `(${where}) AND CO_NAME = '${this._sqlEscape(this.coName)}'` : where;
   }
 
   _getAddressWhereExact(cleaned) {
@@ -105,13 +100,13 @@ export class MnStateSchemaProvider extends BaseParcelProvider {
 
 export class DakotaProvider extends MnStateSchemaProvider {
   endpointUrl = MN_STATE_PARCELS_FEATURESERVER + "/2/query";
-  sourceLabel = "dakota_county_arcgis_state";
+  sourceId = "dakota_county_arcgis_state";
   coName = "Dakota";
 }
 
 export class WashingtonProvider extends MnStateSchemaProvider {
   endpointUrl = MN_STATE_PARCELS_FEATURESERVER + "/6/query";
-  sourceLabel = "washington_county_arcgis_state";
+  sourceId = "washington_county_arcgis_state";
   coName = "Washington";
 }
 
@@ -120,6 +115,6 @@ export class CarverProvider extends MnStateSchemaProvider {
   // TAX_NAME (the taxpayer name) is populated for 47,585 of 47,886 parcels.
   ownerField = "TAX_NAME";
   endpointUrl = MN_STATE_PARCELS_FEATURESERVER + "/1/query";
-  sourceLabel = "carver_county_arcgis_state";
+  sourceId = "carver_county_arcgis_state";
   coName = "Carver";
 }

@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from backend.services.base import BaseParcelService, street_prefix
+from backend.services.base import BaseParcelProvider, street_prefix
 
 
 MORRISON_QUERY_URL = (
@@ -14,12 +14,14 @@ MORRISON_QUERY_URL = (
 STREET_FIELDS = ("SitusStNo", "SitusStName", "SitusStType", "SitusPostDir")
 
 
-class MorrisonParcelService(BaseParcelService):
+class MorrisonParcelProvider(BaseParcelProvider):
 
     endpoint_url = MORRISON_QUERY_URL
-    source_label = "morrison_county_arcgis"
+    source_id = "morrison_county_arcgis"
     parcel_id_field = "PIN"
     owner_field = "Primary_Owner"
+    value_field = "Total_EMV"
+    land_use_field = "PriClass"
     # Single usable street string; the Situs* components are stored with the
     # literal text "NULL" on many records, so the freeform field is the
     # reliable match target ("30281 NATURE RD").

@@ -24,6 +24,18 @@ export async function fetchWithTimeout(url, options = {}, timeoutMs = 20000) {
   }
 }
 
+// Raised when a run uses up its request budget. The runner treats it as a
+// limit (the run is "capped") once it has a seed, like reaching maxParcels.
+export class BudgetExceededError extends Error {
+  constructor(maxRequests) {
+    super(
+      `Request budget of ${maxRequests} exceeded while querying parcel providers. ` +
+        "Increase maxRequests if needed."
+    );
+    this.name = "BudgetExceededError";
+  }
+}
+
 // Request budget mirrors backend/services/base.py RequestBudget.
 export class RequestBudget {
   constructor(maxRequests) {
@@ -33,11 +45,6 @@ export class RequestBudget {
 
   consume() {
     this.usedRequests += 1;
-    if (this.usedRequests > this.maxRequests) {
-      throw new Error(
-        "Request budget exceeded while querying parcel providers. " +
-          "Increase maxRequests if needed."
-      );
-    }
+    if (this.usedRequests > this.maxRequests) throw new BudgetExceededError(this.maxRequests);
   }
 }

@@ -3,13 +3,14 @@
 // property links, and map-click behavior are carried over from the original
 // backend/static/app.js unchanged.
 
-import { createService, SPEC_COUNTIES } from "./providers/registry.js";
+import { COUNTIES, createProvider } from "./providers/registry.js";
 import { ParcelLookupRunner } from "./runner.js";
 import { ParcelStore } from "./store.js";
 import { LLMService } from "./llm.js";
 import { SETTINGS, REQUEST } from "./config.js";
 import { runToCsv, runToGeoJson, downloadText } from "./export.js";
 import { escapeHtml } from "./util.js";
+import { pointInGeometry, polygonRingSignedArea } from "./geometry.js";
 
 const llm = new LLMService();
 
@@ -22,299 +23,18 @@ try {
   console.warn("IndexedDB unavailable — cache and history disabled:", err);
 }
 
-const countyConfig = {
-  wright: {
-    label: "Wright County",
-    center: [45.2, -93.95],
-    zoom: 11,
-    placeholder: "Example: 4706 Mayer Ave NE St Michael MN 55376",
-    propertySearch: {
-      label: "Wright Property Search",
-      href: "https://propertyaccess.co.wright.mn.us/search/commonsearch.aspx?mode=combined",
-    },
-    arcgisJsonBase:
-      "https://services2.arcgis.com/CiQCvRGImIxsaFnM/arcgis/rest/services/Parcel_Data/FeatureServer/0/query",
-    arcgisJsonFields: "PID,OWNNAME,PHYSADDR",
-    arcgisJsonIdField: "PID",
-    zillowSuffix: "Wright County MN",
-  },
-  hennepin: {
-    label: "Hennepin County",
-    center: [44.98, -93.27],
-    zoom: 12,
-    placeholder: "Example: 1945 Drew Ave S Minneapolis MN 55416",
-    propertySearch: {
-      label: "Hennepin Property Map",
-      href: "https://gis.hennepin.us/property/map/",
-    },
-    arcgisJsonBase:
-      "https://gis.hennepin.us/arcgis/rest/services/HennepinData/LAND_PROPERTY/MapServer/1/query",
-    arcgisJsonFields: "PID,OWNER_NM,HOUSE_NO,STREET_NM,MAILING_MUNIC_NM,ZIP_CD",
-    arcgisJsonIdField: "PID",
-    zillowSuffix: "Hennepin County MN",
-  },
-  stlouis: {
-    label: "St. Louis County",
-    center: [46.79, -92.1],
-    zoom: 10,
-    placeholder: "Example: 121 Hawthorne Rd Duluth MN 55812",
-    propertySearch: {
-      label: "St. Louis County Property",
-      href: "https://www.stlouiscountymn.gov/departments-a-z/assessor/property-information",
-    },
-    arcgisJsonBase:
-      "https://gis.stlouiscountymn.gov/server2/rest/services/GeneralUse/Cadastral/MapServer/23/query",
-    arcgisJsonFields: "PRCL_NBR,OWNAME,PHYSADDR,PHYSCITY,PHYSZIP",
-    arcgisJsonIdField: "PRCL_NBR",
-    zillowSuffix: "St. Louis County MN",
-  },
-  sherburne: {
-    label: "Sherburne County",
-    center: [45.45, -93.78],
-    zoom: 11,
-    placeholder: "Example: 18879 180th Ave NW Big Lake MN 55309",
-    propertySearch: {
-      label: "Sherburne Property Search",
-      href: "https://beacon.schneidercorp.com/Application.aspx?AppID=133&LayerID=1600&PageTypeID=2&PageID=828",
-    },
-    arcgisJsonBase:
-      "https://gis.co.sherburne.mn.us/arcgis/rest/services/OpenData/Parcels/FeatureServer/0/query",
-    arcgisJsonFields:
-      "PIN,OWNER_NAME,BLDG_NUM,STREETNAME,STREETTYPE,SUFFIX_DIR,CITY_MAIL,ZIP",
-    arcgisJsonIdField: "PIN",
-    zillowSuffix: "Sherburne County MN",
-  },
-  anoka: {
-    label: "Anoka County",
-    center: [45.27, -93.25],
-    zoom: 11,
-    placeholder: "Example: 23925 Germanium St NW Saint Francis MN 55070",
-    propertySearch: {
-      label: "Anoka Property Search",
-      href: "https://gis.anokacountymn.gov/propertysearch/",
-    },
-    arcgisJsonBase:
-      "https://gisservices.co.anoka.mn.us/anoka_gis/rest/services/Parcels/FeatureServer/0/query",
-    arcgisJsonFields: "PIN,OWNER,LOC_ADDR,LOC_CITY,LOC_ZIP",
-    arcgisJsonIdField: "PIN",
-    zillowSuffix: "Anoka County MN",
-  },
-  ramsey: {
-    label: "Ramsey County",
-    center: [45.02, -93.05],
-    zoom: 10,
-    placeholder: "Example: 2715 Upper Afton Rd E Maplewood MN 55119",
-    propertySearch: {
-      label: "Ramsey Open Data",
-      href: "https://opendata.ramseycountymn.gov/",
-    },
-    arcgisJsonBase:
-      "https://maps.co.ramsey.mn.us/arcgis/rest/services/OpenData/OpenData/MapServer/12/query",
-    arcgisJsonFields: "ParcelID,OwnerName,SiteAddress,SiteCityName,SiteZIP5",
-    arcgisJsonIdField: "ParcelID",
-    zillowSuffix: "Ramsey County MN",
-  },
-  olmsted: {
-    label: "Olmsted County",
-    center: [44.01, -92.38],
-    zoom: 10,
-    placeholder: "Example: 6126 County Rd 19 SE Rochester MN 55904",
-    propertySearch: {
-      label: "Olmsted County GIS Map",
-      href: "https://gweb01.co.olmsted.mn.us/WebApps/OlmstedCountyGISMap/",
-    },
-    arcgisJsonBase:
-      "https://public.gis.olmstedcounty.gov/arcgis/rest/services/Parcels_Addressing/MapServer/3/query",
-    arcgisJsonFields: "PIN,OwnerName1,SiteAddrNo,SiteStName,SiteCity,SiteZip5",
-    arcgisJsonIdField: "PIN",
-    zillowSuffix: "Olmsted County MN",
-  },
-  chisago: {
-    label: "Chisago County",
-    center: [45.6, -93.02],
-    zoom: 10,
-    placeholder: "Example: 16823 River Rd North Branch MN 55056",
-    propertySearch: {
-      label: "Chisago Parcel Viewer",
-      href: "https://gis.chisagocountymn.gov/Link/WAB/",
-    },
-    arcgisJsonBase:
-      "https://gis.chisagocounty.us/arcgis/rest/services/AssessmentInformation/TaxParcels/MapServer/0/query",
-    arcgisJsonFields: "PIN,Ownname,PropAddr,PropCity,PropZip",
-    arcgisJsonIdField: "PIN",
-    zillowSuffix: "Chisago County MN",
-  },
-  morrison: {
-    label: "Morrison County",
-    center: [46.06, -94.21],
-    zoom: 9,
-    placeholder: "Example: 30281 Nature Rd Royalton MN 56373",
-    propertySearch: {
-      label: "Morrison County Assessor",
-      href: "https://morrisoncountymn.gov/government/assessor/",
-    },
-    arcgisJsonBase:
-      "https://services1.arcgis.com/lQjrBHFnTgKBR9zX/arcgis/rest/services/Parcels/FeatureServer/0/query",
-    arcgisJsonFields: "PIN,Primary_Owner,Situs_Freeform_Addr,SitusCity,SitusZip",
-    arcgisJsonIdField: "PIN",
-    zillowSuffix: "Morrison County MN",
-  },
-  scott: {
-    label: "Scott County",
-    center: [44.6, -93.78],
-    zoom: 10,
-    placeholder: "Example: 72 Cedar Lake Ct New Prague MN 56071",
-    propertySearch: {
-      label: "Scott County Open Data",
-      href: "https://open-data-scottcounty.hub.arcgis.com/datasets/parcels/explore",
-    },
-    arcgisJsonBase:
-      "https://services.arcgis.com/DqIh9WAsIZcPlBEF/arcgis/rest/services/Parcels/FeatureServer/0/query",
-    arcgisJsonFields: "PID,TaxPayerName,PropertyAddress1,PropertyCity,PropertyZip",
-    arcgisJsonIdField: "PID",
-    zillowSuffix: "Scott County MN",
-  },
-  aitkin: {
-    label: "Aitkin County",
-    center: [46.72, -93.37],
-    zoom: 10,
-    placeholder: "Example: 230 S Maddy St McGregor MN 55760",
-    propertySearch: {
-      label: "Aitkin County GIS",
-      href: "https://gisweb.co.aitkin.mn.us/",
-    },
-    arcgisJsonBase:
-      "https://gisweb.co.aitkin.mn.us/arcgis/rest/services/ParcelTaxData/FeatureServer/0/query",
-    arcgisJsonFields: "PRCL_NBR,OWNNAME,ADDR_1,ADDR_2",
-    arcgisJsonIdField: "PRCL_NBR",
-    zillowSuffix: "Aitkin County MN",
-  },
-  koochiching: {
-    label: "Koochiching County",
-    center: [48.28, -93.76],
-    zoom: 9,
-    placeholder: "Example: 12005 Town Road 129 Baudette MN 56623",
-    propertySearch: {
-      label: "Koochiching County",
-      href: "https://koochichingcounty.gov/",
-    },
-    arcgisJsonBase:
-      "https://services3.arcgis.com/8mdusDCY0WncdJVw/arcgis/rest/services/KoochichingCountyParcelDataPublish/FeatureServer/0/query",
-    arcgisJsonFields: "PARCEL_ID,OWNNAME,ADDR_1,CITY,ZIP_CODE_5",
-    arcgisJsonIdField: "PARCEL_ID",
-    zillowSuffix: "Koochiching County MN",
-  },
-  beltrami: {
-    label: "Beltrami County",
-    center: [47.465, -94.875],
-    zoom: 10,
-    placeholder: "Example: 8644 Lumberjack Rd NW Puposky MN 56667",
-    propertySearch: {
-      label: "Beltrami County Assessor",
-      href: "https://beltramicounty.org/assessor/",
-    },
-    arcgisJsonBase:
-      "https://arcgis.co.beltrami.mn.us/arcgis/rest/services/BeltramiData/BeltramiOpenData/MapServer/2/query",
-    arcgisJsonFields: "PIN,OWNERNAME1,OWNERNAME2,PROP_ADD1,PROP_CITY,PROP_ZIP",
-    arcgisJsonIdField: "PIN",
-    zillowSuffix: "Beltrami County MN",
-  },
-  blueearth: {
-    label: "Blue Earth County",
-    center: [44.06, -94.07],
-    zoom: 10,
-    placeholder: "Example: 204 S 5th St Mankato MN 56001",
-    propertySearch: {
-      label: "Blue Earth Property Information",
-      href: "https://beacon.schneidercorp.com/Application.aspx?AppID=387&LayerID=5678&PageTypeID=2&PageID=3065",
-    },
-    arcgisJsonBase:
-      "https://gis.blueearthcountymn.gov/server/rest/services/LandRecords/TaxParcelsWGS84/MapServer/0/query",
-    arcgisJsonFields:
-      "SDEDATA.TaxParcel.ParcelNo,Ownership.OWNNAME,Ownership.PHYSADDR,Ownership.PHYSCITY,Ownership.PHYSZIP",
-    arcgisJsonIdField: "SDEDATA.TaxParcel.ParcelNo",
-    zillowSuffix: "Blue Earth County MN",
-  },
-  dakota: {
-    label: "Dakota County",
-    center: [44.78, -93.28],
-    zoom: 10,
-    placeholder: "Example: 4955 Diamond Path Apple Valley MN 55124",
-    propertySearch: {
-      label: "Dakota County GIS",
-      href: "https://gis.co.dakota.mn.us/dcgis/",
-    },
-    arcgisJsonBase:
-      "https://arcgis.metc.state.mn.us/data1/rest/services/parcels/Parcels/FeatureServer/2/query",
-    arcgisJsonFields: "PIN,OWNER_NAME,ANUMBER,ST_NAME,ST_POS_TYP,CTU_NAME,ZIP",
-    arcgisJsonIdField: "PIN",
-    zillowSuffix: "Dakota County MN",
-  },
-  washington: {
-    label: "Washington County",
-    center: [45.02, -92.88],
-    zoom: 9,
-    placeholder: "Example: 12001 120th St NE Bayport MN 55003",
-    propertySearch: {
-      label: "Washington County GIS",
-      href: "https://washingtoncountymn.gov/government/departments-a-z/g/gis",
-    },
-    arcgisJsonBase:
-      "https://arcgis.metc.state.mn.us/data1/rest/services/parcels/Parcels/FeatureServer/6/query",
-    arcgisJsonFields: "PIN,OWNER_NAME,ANUMBER,ST_NAME,ST_POS_TYP,CTU_NAME,ZIP",
-    arcgisJsonIdField: "PIN",
-    zillowSuffix: "Washington County MN",
-  },
-  carver: {
-    label: "Carver County",
-    center: [44.82, -93.85],
-    zoom: 10,
-    placeholder: "Example: 13075 166th St Chanhassen MN 55317",
-    propertySearch: {
-      label: "Carver County Property Search",
-      href: "https://gis.carvercountymn.gov/property/",
-    },
-    arcgisJsonBase:
-      "https://arcgis.metc.state.mn.us/data1/rest/services/parcels/Parcels/FeatureServer/1/query",
-    arcgisJsonFields: "PIN,TAX_NAME,ANUMBER,ST_NAME,CTU_NAME,ZIP",
-    arcgisJsonIdField: "PIN",
-    zillowSuffix: "Carver County MN",
-  },
-};
-
-// Spec-driven counties (web/mn_parcel_specs.json, adapter specs from
-// ErisData, CC-BY-4.0). The bundle generator precomputed center/zoom from
-// Census county bounds and a geocodable example address per county. No
-// county property-search page is known for these, so that link is omitted.
-for (const spec of Object.values(SPEC_COUNTIES)) {
-  const { apn, owner, address } = spec.fields;
-  countyConfig[spec.id] = {
-    label: spec.label,
-    center: spec.center,
-    zoom: spec.zoom,
-    placeholder: spec.placeholder,
-    arcgisJsonBase: `${spec.url}/query`,
-    arcgisJsonFields: [apn, owner, address].filter(Boolean).join(","),
-    arcgisJsonIdField: apn,
-    arcgisJsonFilter: spec.filter,
-    zillowSuffix: `${spec.label} MN`,
-    badge: spec.badge || "",
-    coverage: spec.coverage || "",
-  };
-}
-
 const countySelect = document.getElementById("county");
 
-// Fill the county dropdown alphabetically from countyConfig, keeping the
+// Fill the county dropdown alphabetically from the registry, keeping the
 // default selection from index.html (St. Louis).
 function populateCountySelect() {
   const current = countySelect.value || "stlouis";
-  const ids = Object.keys(countyConfig).sort((a, b) =>
-    countyConfig[a].label.localeCompare(countyConfig[b].label)
+  const ids = Object.keys(COUNTIES).sort((a, b) =>
+    COUNTIES[a].label.localeCompare(COUNTIES[b].label)
   );
   countySelect.replaceChildren(
     ...ids.map((id) => {
-      const { label, badge } = countyConfig[id];
+      const { label, badge } = COUNTIES[id];
       return new Option(badge ? `${label} (${badge})` : label, id, false, id === current);
     })
   );
@@ -361,13 +81,18 @@ let sessionParcels = new Map(); // parcel_id -> parcel (accumulated map selectio
 let selectedParcelId = null; // most recently inspected parcel
 let selectionAddress = null; // what a map click wrote into the address box
 
-// One runner per county, created on demand (each wraps its own provider).
+// One provider and one runner per county, created on demand.
+const providers = {};
+function providerFor(county) {
+  if (!providers[county]) providers[county] = createProvider(county, REQUEST);
+  return providers[county];
+}
+
 const runners = {};
 function getRunner() {
   const county = getCounty();
   if (!runners[county]) {
-    const service = createService(county, REQUEST);
-    runners[county] = new ParcelLookupRunner(service, SETTINGS, county, store, llm);
+    runners[county] = new ParcelLookupRunner(providerFor(county), SETTINGS, store, llm);
   }
   return runners[county];
 }
@@ -377,7 +102,7 @@ function getCounty() {
 }
 
 function getCountyConfig() {
-  return countyConfig[getCounty()] || countyConfig.wright;
+  return COUNTIES[getCounty()] || COUNTIES.wright;
 }
 
 const map = L.map("map").setView(getCountyConfig().center, getCountyConfig().zoom);
@@ -408,7 +133,7 @@ function applyCounty({ keepView = false } = {}) {
   subheadingEl.textContent = cfg.label + " address → owner → adjacent parcel rings";
   addressInput.placeholder = cfg.placeholder;
   map.attributionControl.removeAttribution(ERIS_ATTRIBUTION);
-  if (SPEC_COUNTIES[getCounty()]) map.attributionControl.addAttribution(ERIS_ATTRIBUTION);
+  if (getCountyConfig().spec) map.attributionControl.addAttribution(ERIS_ATTRIBUTION);
   if (!keepView) map.setView(cfg.center, cfg.zoom);
   drawCountyBorder();
   resetSession();
@@ -432,45 +157,12 @@ fetch("county_boundaries.geojson")
     console.warn("county boundaries load failed:", err);
   });
 
-// Pre-select the county the user is physically in (falls back to the default,
-// St. Louis, if geolocation is unavailable, denied, or outside all counties).
-function ringContains(lon, lat, ring) {
-  let inside = false;
-  for (let i = 0, j = ring.length - 1; i < ring.length; j = i, i += 1) {
-    const xi = ring[i][0];
-    const yi = ring[i][1];
-    const xj = ring[j][0];
-    const yj = ring[j][1];
-    if (
-      yi > lat !== yj > lat &&
-      lon < ((xj - xi) * (lat - yi)) / ((yj - yi) || 1e-12) + xi
-    ) {
-      inside = !inside;
-    }
-  }
-  return inside;
-}
-
-function polygonContains(lon, lat, rings) {
-  if (!rings || !rings.length || !ringContains(lon, lat, rings[0])) return false;
-  for (let i = 1; i < rings.length; i += 1) {
-    if (ringContains(lon, lat, rings[i])) return false; // inside a hole
-  }
-  return true;
-}
-
 function featureContains(feat, lon, lat) {
-  const geom = feat && feat.geometry;
-  if (!geom) return false;
-  if (geom.type === "Polygon") return polygonContains(lon, lat, geom.coordinates);
-  if (geom.type === "MultiPolygon") {
-    return geom.coordinates.some((poly) => polygonContains(lon, lat, poly));
-  }
-  return false;
+  return Boolean(feat) && pointInGeometry(lon, lat, feat.geometry);
 }
 
 function countyForPoint(lon, lat) {
-  for (const id of Object.keys(countyConfig)) {
+  for (const id of Object.keys(COUNTIES)) {
     if (featureContains(countyBoundaries[id], lon, lat)) return id;
   }
   return null;
@@ -482,6 +174,8 @@ function boundaryForPoint(lon, lat) {
   return Object.values(countyBoundaries).find((feat) => featureContains(feat, lon, lat)) || null;
 }
 
+// Pre-select the county the user is physically in (falls back to the default,
+// St. Louis, if geolocation is unavailable, denied, or outside all counties).
 function detectCounty() {
   if (!navigator.geolocation) return;
   navigator.geolocation.getCurrentPosition(
@@ -518,18 +212,9 @@ function clearMap() {
 
 // ---- Owner labels on the map --------------------------------------------
 
-// Absolute shoelace area for a GeoJSON ring of [lon, lat] pairs.
-function ringArea(ring) {
-  let area = 0;
-  for (let i = 0, j = ring.length - 1; i < ring.length; j = i += 1) {
-    area += ring[j][0] * ring[i][1] - ring[i][0] * ring[j][1];
-  }
-  return Math.abs(area / 2);
-}
-
-// Shoelace centroid for a GeoJSON ring; falls back to the mean vertex for
-// degenerate (zero-area) rings.
-function ringCentroid(ring) {
+// Shoelace centroid for a GeoJSON polygon ring; falls back to the mean
+// vertex for degenerate (zero-area) polygon rings.
+function polygonRingCentroid(ring) {
   let area = 0;
   let cx = 0;
   let cy = 0;
@@ -554,7 +239,7 @@ function ringCentroid(ring) {
 }
 
 // Label point for a GeoJSON geometry: centroid of the largest polygon so
-// MultiPolygons (and donut-shaped rings) don't land in a hole.
+// MultiPolygons (and donut-shaped parcels) don't land in a hole.
 function geometryLabelPoint(geometry) {
   if (!geometry || !Array.isArray(geometry.coordinates)) return null;
   const polygons =
@@ -564,13 +249,13 @@ function geometryLabelPoint(geometry) {
   for (const poly of polygons) {
     const outer = poly && poly[0];
     if (!outer || outer.length < 3) continue;
-    const area = ringArea(outer);
+    const area = Math.abs(polygonRingSignedArea(outer));
     if (area > bestArea) {
       bestArea = area;
       bestRing = outer;
     }
   }
-  return bestRing ? ringCentroid(bestRing) : null;
+  return bestRing ? polygonRingCentroid(bestRing) : null;
 }
 
 // Permanent, non-interactive owner label centered on the parcel.
@@ -668,23 +353,18 @@ function renderTable(parcels) {
   }
 }
 
-function buildPropertyLinks(seedParcel, inputAddress = "") {
-  const cfg = getCountyConfig();
-  const parcelId = seedParcel?.parcel_id || "";
-  const siteAddress = seedParcel?.site_address || "";
-  const safeInput = String(inputAddress || "");
-  const cleanInput = safeInput.startsWith("POINT(") || safeInput.startsWith("PARCEL(")
-    ? ""
-    : safeInput;
-  const query = (cleanInput || siteAddress || parcelId).trim();
+// Links for a parcel in the given county. `input` is the run input, if any:
+// a typed address is the best search query; otherwise the parcel's own site
+// address, then its ID.
+function buildPropertyLinks(parcel, county, input = null) {
+  const cfg = COUNTIES[county];
+  if (!cfg) return [];
+  const parcelId = parcel?.parcel_id || "";
+  const typedAddress = input?.kind === "address" ? input.address : "";
+  const query = (typedAddress || parcel?.site_address || parcelId).trim();
   if (!query) return [];
 
-  const zillowQuery = `${query} ${cfg.zillowSuffix}`;
-  let where = parcelId
-    ? `${cfg.arcgisJsonIdField}='${parcelId.replace(/'/g, "''")}'`
-    : "";
-  if (where && cfg.arcgisJsonFilter) where += ` AND (${cfg.arcgisJsonFilter})`;
-
+  const zillowQuery = `${query} ${cfg.label} MN`;
   const links = [
     {
       label: "Open Zillow",
@@ -708,12 +388,10 @@ function buildPropertyLinks(seedParcel, inputAddress = "") {
     });
   }
 
-  if (where) {
+  if (parcelId) {
     links.push({
       label: `${cfg.label} Parcel JSON`,
-      href:
-        cfg.arcgisJsonBase +
-        `?f=pjson&where=${encodeURIComponent(where)}&outFields=${cfg.arcgisJsonFields}&returnGeometry=true&outSR=4326`,
+      href: providerFor(county).parcelJsonUrl(parcelId),
       primary: false,
     });
   }
@@ -727,7 +405,7 @@ function renderPropertyLinks(run) {
     hidePropertyLinks();
     return;
   }
-  renderPropertyLinksForParcel(seedParcel, run.input_address);
+  renderPropertyLinksForParcel(seedParcel, run.county, run.input);
 }
 
 function hidePropertyLinks() {
@@ -736,15 +414,16 @@ function hidePropertyLinks() {
   linksContextEl.textContent = "";
 }
 
-function renderPropertyLinksForParcel(parcel, inputAddress = "") {
+function renderPropertyLinksForParcel(parcel, county, input = null) {
   if (!parcel) {
     hidePropertyLinks();
     return;
   }
-  const displayAddress = parcel.site_address || inputAddress || "(unknown)";
+  const typedAddress = input?.kind === "address" ? input.address : "";
+  const displayAddress = parcel.site_address || typedAddress || "(unknown)";
   linksContextEl.textContent = `${displayAddress} • Parcel ${parcel.parcel_id || "(n/a)"}`;
 
-  const links = buildPropertyLinks(parcel, inputAddress);
+  const links = buildPropertyLinks(parcel, county, input);
   if (!links.length) {
     hidePropertyLinks();
     return;
@@ -771,7 +450,7 @@ function renderRun(run) {
 
   const seedParcel = (run.parcels || []).find((parcel) => parcel.is_seed);
   const detectedAddress = (seedParcel && seedParcel.site_address) || "";
-  if (detectedAddress && String(run.input_address || "").startsWith("POINT(")) {
+  if (detectedAddress && run.input?.kind === "point") {
     addressInput.value = detectedAddress;
   }
 
@@ -788,7 +467,7 @@ function renderSession() {
   renderParcels(parcels, selectedParcelId);
   renderTable(parcels);
   if (selected) {
-    renderPropertyLinksForParcel(selected, "");
+    renderPropertyLinksForParcel(selected, selected.county);
   } else {
     hidePropertyLinks();
   }
@@ -826,7 +505,12 @@ function handleRunResult(run) {
   if (run.status === "failed") throw new Error(run.error || "Lookup failed.");
   if (run.status === "not_found") throw new Error(run.error || "No parcel found.");
   renderRun(run);
-  const suffix = run.status === "capped" ? " (capped by limits)" : "";
+  const suffix =
+    run.capped_by === "request_budget"
+      ? " (stopped early: request budget used up)"
+      : run.capped_by === "max_parcels"
+        ? " (stopped early: parcel limit reached)"
+        : "";
   const cacheSuffix = run.from_cache ? " (loaded from 30-day cache)" : "";
   setStatus(`Run ${run.id} complete${suffix}${cacheSuffix}.`);
   refreshHistory();
@@ -852,11 +536,13 @@ async function refreshHistory() {
     const li = document.createElement("li");
     li.className = "history-item";
 
-    const label = run.input_address.startsWith("POINT(")
-      ? "map click"
-      : run.input_address.startsWith("PARCEL(")
-        ? "expand neighbors"
-        : run.input_address;
+    const kindLabel = {
+      point: "map click",
+      parcel: "expand neighbors",
+      address: run.input?.address,
+    }[run.input?.kind];
+    const countyLabel = COUNTIES[run.county]?.label || run.county;
+    const label = `${kindLabel || run.input_label} (${countyLabel})`;
     const button = document.createElement("button");
     button.type = "button";
     button.className = "history-link";
@@ -1025,7 +711,7 @@ map.on("click", (event) => {
 });
 
 // ---- LLM settings panel (Phase 4) -------------------------------------
-const llmProviderEl = document.getElementById("llm-provider");
+const llmVendorEl = document.getElementById("llm-vendor");
 const llmModelEl = document.getElementById("llm-model");
 const llmKeyEl = document.getElementById("llm-key");
 const llmSaveBtn = document.getElementById("llm-save");
@@ -1040,11 +726,11 @@ function refreshLlmAvailability() {
 
 function initLlmSettings() {
   const cfg = llm.getConfig();
-  llmProviderEl.value = cfg.provider;
+  llmVendorEl.value = cfg.vendor;
   llmModelEl.value = cfg.model;
   llmKeyEl.value = cfg.apiKey;
   if (llm.isAvailable) {
-    llmStatusEl.textContent = `Configured: ${cfg.provider} / ${cfg.model}.`;
+    llmStatusEl.textContent = `Configured: ${cfg.vendor} / ${cfg.model}.`;
   }
   refreshLlmAvailability();
   // Default the LLM toggle on at load when a key is configured.
@@ -1052,14 +738,14 @@ function initLlmSettings() {
 }
 
 llmSaveBtn.addEventListener("click", () => {
-  const provider = llmProviderEl.value || "openai";
+  const vendor = llmVendorEl.value || "openai";
   const model = (llmModelEl.value || "").trim() || "gpt-4o-mini";
   const apiKey = (llmKeyEl.value || "").trim();
-  llm.saveConfig({ provider, model, apiKey, enabled: true });
+  llm.saveConfig({ vendor, model, apiKey, enabled: true });
   llmModelEl.value = model;
   refreshLlmAvailability();
   llmStatusEl.textContent = llm.isAvailable
-    ? `Saved. LLM enabled (${provider} / ${model}). Tick the checkbox above to use it.`
+    ? `Saved. LLM enabled (${vendor} / ${model}). Tick the checkbox above to use it.`
     : "Saved, but no API key entered — LLM stays off.";
 });
 

@@ -1,5 +1,6 @@
 // Port of backend/services/olmsted.py
 import { BaseParcelProvider, DIRECTIONALS } from "./base.js";
+import { MATCHED_BY } from "../model.js";
 
 const OLMSTED_BASE_URL =
   "https://public.gis.olmstedcounty.gov/arcgis/rest/services/Parcels_Addressing/MapServer";
@@ -51,7 +52,7 @@ const E911_FIELDS = {
 export class OlmstedProvider extends BaseParcelProvider {
   endpointUrl = `${OLMSTED_BASE_URL}/3/query`;
   e911Url = `${OLMSTED_BASE_URL}/0/query`;
-  sourceLabel = "olmsted_county_arcgis";
+  sourceId = "olmsted_county_arcgis";
   parcelIdField = "PIN";
   ownerField = "OwnerName1";
   valueField = "EMVTotal";
@@ -110,7 +111,7 @@ export class OlmstedProvider extends BaseParcelProvider {
     const point = points.find((f) => f.geometry && "x" in f.geometry);
     if (!point) return null;
     const feature = await this._queryByPoint(point.geometry.x, point.geometry.y, budget);
-    if (feature) feature.matchedBy = "e911_point_intersect";
+    if (feature) feature.matchedBy = MATCHED_BY.ADDRESS_POINT;
     return feature;
   }
 
@@ -248,7 +249,7 @@ export class OlmstedProvider extends BaseParcelProvider {
   }
 
   _featureToRecord(feature, matchedBy) {
-    const record = super._featureToRecord(feature, feature.matchedBy || matchedBy);
+    const record = super._featureToRecord(feature, matchedBy);
     const attrs = feature.attributes || {};
     const secondOwner = String(attrs.OwnerName2 ?? "").trim();
     if (record.owner_name && secondOwner) {

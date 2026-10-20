@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from backend.services.base import BaseParcelService, street_prefix
+from backend.services.base import BaseParcelProvider, street_prefix
 
 
 CHISAGO_QUERY_URL = (
@@ -12,12 +12,15 @@ CHISAGO_QUERY_URL = (
 )
 
 
-class ChisagoParcelService(BaseParcelService):
+class ChisagoParcelProvider(BaseParcelProvider):
 
     endpoint_url = CHISAGO_QUERY_URL
-    source_label = "chisago_county_arcgis"
+    source_id = "chisago_county_arcgis"
     parcel_id_field = "PIN"
     owner_field = "Ownname"
+    value_field = "TotalValue"
+    value_year_field = "AssessYear"
+    land_use_field = "ClassCd1"
     address_field = "PropAddr"
     extra_out_fields = ["PropCity", "PropZip"]
     adjacent_spatial_rel = "esriSpatialRelIntersects"

@@ -1,5 +1,6 @@
 // Port of backend/services/hennepin.py
 import { BaseParcelProvider } from "./base.js";
+import { MATCHED_BY } from "../model.js";
 
 const HENNEPIN_PARCEL_URL =
   "https://gis.hennepin.us/arcgis/rest/services/" +
@@ -10,7 +11,7 @@ const HENNEPIN_ADDRESS_POINTS_URL =
 
 export class HennepinProvider extends BaseParcelProvider {
   endpointUrl = HENNEPIN_PARCEL_URL;
-  sourceLabel = "hennepin_county_arcgis";
+  sourceId = "hennepin_county_arcgis";
   parcelIdField = "PID";
   ownerField = "OWNER_NM";
   valueField = "MKT_VAL_TOT";
@@ -60,7 +61,11 @@ export class HennepinProvider extends BaseParcelProvider {
       const match = this._firstFeatureWithPid(features);
       if (match) {
         const pid = String(match.attributes?.PID ?? "").trim();
-        if (pid) return this._queryParcelByPid(pid, budget);
+        if (pid) {
+          const parcel = await this._queryParcelByPid(pid, budget);
+          if (parcel) parcel.matchedBy = MATCHED_BY.ADDRESS_POINT;
+          return parcel;
+        }
       }
       return null;
     };

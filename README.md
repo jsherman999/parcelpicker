@@ -307,7 +307,7 @@ Returns available counties and LLM availability metadata.
     {"id": "hennepin", "label": "Hennepin County"},
     {"id": "stlouis", "label": "St. Louis County"}
   ],
-  "llm": {"enabled": false, "configured_provider": "openai", "configured_model": "gpt-4o-mini"}
+  "llm": {"enabled": false, "configured_vendor": "openai", "configured_model": "gpt-4o-mini"}
 }
 ```
 
@@ -330,6 +330,14 @@ Request:
 
 Success response contains run metadata plus all parcel rows for the run.
 - Includes `from_cache` (`true`/`false`) indicating whether results came from 30-day local cache.
+- `county` is the county the run belongs to; parcel IDs are only unique within
+  a county, so parcels and cached address lookups are keyed by county.
+- `input` is what the run started from: `{"kind": "address", "address": ...}`,
+  `{"kind": "point", "lat": ..., "lon": ...}` or `{"kind": "parcel", "parcel_id": ...}`;
+  `input_label` is a display string for it.
+- `source_id` names the county data source (e.g. `wright_county_arcgis`).
+- Each parcel's `matched_by` is one of `address`, `address_point`,
+  `geocode_point`, `map_point`, `cache_point`, `adjacent`.
 
 ### `POST /api/lookup/point`
 
@@ -378,7 +386,10 @@ Download the run as GeoJSON FeatureCollection.
   - Zillow link first, then Realtor and county/public fallback links.
   - External property links open in new tabs (not embedded iframes).
   - County-specific links (property search, ArcGIS JSON) update based on selected county.
-- Runs are bounded by request and parcel caps; capped runs return status `capped`.
+- Runs are bounded by request and parcel caps. A run that hits either one after
+  finding its seed returns status `capped` with the parcels found so far, and
+  `capped_by` says which (`max_parcels` or `request_budget`).
+- Multipart parcels come back as GeoJSON `MultiPolygon`s.
 - LLM assistance is advisory and never used to invent parcel IDs or owners.
 - Owner normalization falls back to deterministic uppercase normalization when LLM is disabled/unavailable.
 - All counties use the same `inSR=4326` / `outSR=4326` strategy to normalize spatial reference differences.

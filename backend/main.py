@@ -5,7 +5,7 @@ import io
 import logging
 import os
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any, Literal
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
@@ -17,7 +17,8 @@ from pydantic import BaseModel, Field
 from backend.db import ParcelDatabase
 from backend.services.llm import LLMConfig, LLMService
 from backend.services.runner import ParcelLookupRunner, load_lookup_settings
-from backend.services.registry import create_service, COUNTY_CLASSES, COUNTY_LABELS
+from backend.services.parcel import EXPORT_COLUMNS, export_row
+from backend.services.registry import COUNTIES, create_provider
 
 
 load_dotenv()
@@ -54,7 +55,7 @@ def _env_bool(name: str, default: bool = False) -> bool:
 db = ParcelDatabase(db_path=os.getenv("DB_PATH", str(DEFAULT_DB_PATH)))
 llm_service = LLMService(
     LLMConfig(
-        provider=os.getenv("LLM_PROVIDER", "openai"),
+        vendor=os.getenv("LLM_PROVIDER", "openai"),
         model=os.getenv("LLM_MODEL", "gpt-4o-mini"),
         openai_api_key=os.getenv("OPENAI_API_KEY"),
         openrouter_api_key=os.getenv("OPENROUTER_API_KEY"),
@@ -63,29 +64,27 @@ llm_service = LLMService(
 )
 settings = load_lookup_settings()
 
-_service_timeout = float(os.getenv("REQUEST_TIMEOUT_SECONDS", "20"))
-_service_retries = int(os.getenv("REQUEST_RETRIES", "2"))
-_service_backoff = float(os.getenv("RETRY_BACKOFF_SECONDS", "0.8"))
-_service_interval = float(os.getenv("MIN_REQUEST_INTERVAL_SECONDS", "0.15"))
+_request_timeout = float(os.getenv("REQUEST_TIMEOUT_SECONDS", "20"))
+_request_retries = int(os.getenv("REQUEST_RETRIES", "2"))
+_request_backoff = float(os.getenv("RETRY_BACKOFF_SECONDS", "0.8"))
+_request_interval = float(os.getenv("MIN_REQUEST_INTERVAL_SECONDS", "0.15"))
 
-_parcel_services: dict[str, Any] = {}
-for county_key in COUNTY_CLASSES.keys():
-    _parcel_services[county_key] = create_service(
-        county_key,
-        timeout_seconds=_service_timeout,
-        max_retries=_service_retries,
-        retry_backoff_seconds=_service_backoff,
-        min_interval_seconds=_service_interval,
-    )
-
-_runners: dict[str, ParcelLookupRunner] = {}
-for county_key, svc in _parcel_services.items():
-    _runners[county_key] = ParcelLookupRunner(
+# One runner per county, each wrapping that county's parcel provider.
+_runners: dict[str, ParcelLookupRunner] = {
+    county: ParcelLookupRunner(
         db=db,
-        parcel_service=svc,
+        provider=create_provider(
+            county,
+            timeout_seconds=_request_timeout,
+            max_retries=_request_retries,
+            retry_backoff_seconds=_request_backoff,
+            min_interval_seconds=_request_interval,
+        ),
         llm_service=llm_service,
         settings=settings,
     )
+    for county in COUNTIES
+}
 
 
 class LookupRequest(BaseModel):
@@ -104,23 +103,49 @@ class PointLookupRequest(BaseModel):
 
 
 class ParcelResponse(BaseModel):
+    county: str
     parcel_id: str
     owner_name: str
     normalized_owner_name: str
     site_address: str
+    market_value: float | None
+    market_value_year: str
+    land_use: str
     geometry: dict[str, Any] | None
-    source: str
+    source_id: str
     matched_by: str
     ring_number: int
     is_seed: bool
 
 
+class AddressInput(BaseModel):
+    kind: Literal["address"]
+    address: str
+
+
+class PointInput(BaseModel):
+    kind: Literal["point"]
+    lat: float
+    lon: float
+
+
+class ParcelInput(BaseModel):
+    kind: Literal["parcel"]
+    parcel_id: str
+
+
+RunInput = Annotated[AddressInput | PointInput | ParcelInput, Field(discriminator="kind")]
+
+
 class RunResponse(BaseModel):
     id: int
-    input_address: str
+    county: str
+    input: RunInput
+    input_label: str
     rings_requested: int
     status: str
-    provider: str
+    capped_by: Literal["max_parcels", "request_budget"] | None = None
+    source_id: str
     llm_enabled: bool
     seed_parcel_id: str | None
     summary: str | None
@@ -157,12 +182,12 @@ async def health() -> dict[str, str]:
 async def provider_status() -> dict[str, Any]:
     return {
         "counties": [
-            {"id": key, "label": COUNTY_LABELS.get(key, key)}
-            for key in _runners.keys()
+            {"id": county, "label": record.label}
+            for county, record in COUNTIES.items()
         ],
         "llm": {
             "enabled": llm_service.is_available,
-            "configured_provider": os.getenv("LLM_PROVIDER", "openai"),
+            "configured_vendor": os.getenv("LLM_PROVIDER", "openai"),
             "configured_model": os.getenv("LLM_MODEL", "gpt-4o-mini"),
         },
     }
@@ -173,7 +198,7 @@ async def lookup(request: LookupRequest) -> RunResponse:
     runner = _get_runner(request.county)
     try:
         run = await runner.run_lookup(
-            input_address=request.address,
+            address=request.address,
             rings_requested=request.rings,
             use_llm=request.use_llm,
         )
@@ -236,17 +261,7 @@ async def get_run_geojson(run_id: int) -> JSONResponse:
             {
                 "type": "Feature",
                 "geometry": geometry,
-                "properties": {
-                    "run_id": run_id,
-                    "ring_number": parcel.get("ring_number"),
-                    "is_seed": parcel.get("is_seed"),
-                    "parcel_id": parcel.get("parcel_id"),
-                    "owner_name": parcel.get("owner_name"),
-                    "normalized_owner_name": parcel.get("normalized_owner_name"),
-                    "site_address": parcel.get("site_address"),
-                    "matched_by": parcel.get("matched_by"),
-                    "source": parcel.get("source"),
-                },
+                "properties": export_row(run_id, parcel),
             }
         )
 
@@ -267,33 +282,11 @@ async def get_run_csv(run_id: int) -> PlainTextResponse:
 
     buf = io.StringIO()
     writer = csv.writer(buf)
-    writer.writerow(
-        [
-            "run_id",
-            "ring_number",
-            "is_seed",
-            "parcel_id",
-            "owner_name",
-            "normalized_owner_name",
-            "site_address",
-            "matched_by",
-            "source",
-        ]
-    )
+    writer.writerow(EXPORT_COLUMNS)
     for parcel in run["parcels"]:
-        writer.writerow(
-            [
-                run_id,
-                parcel.get("ring_number", ""),
-                int(bool(parcel.get("is_seed", False))),
-                parcel.get("parcel_id", ""),
-                parcel.get("owner_name", ""),
-                parcel.get("normalized_owner_name", ""),
-                parcel.get("site_address", ""),
-                parcel.get("matched_by", ""),
-                parcel.get("source", ""),
-            ]
-        )
+        row = export_row(run_id, parcel)
+        row["is_seed"] = int(row["is_seed"])
+        writer.writerow(["" if row[col] is None else row[col] for col in EXPORT_COLUMNS])
 
     content = buf.getvalue()
     headers = {"Content-Disposition": f'attachment; filename="run_{run_id}.csv"'}
@@ -301,27 +294,17 @@ async def get_run_csv(run_id: int) -> PlainTextResponse:
 
 
 def _to_run_response(run: dict[str, Any]) -> RunResponse:
-    parcels = [
-        ParcelResponse(
-            parcel_id=item["parcel_id"],
-            owner_name=item.get("owner_name") or "",
-            normalized_owner_name=item.get("normalized_owner_name") or "",
-            site_address=item.get("site_address") or "",
-            geometry=item.get("geometry"),
-            source=item.get("source") or "",
-            matched_by=item.get("matched_by") or "",
-            ring_number=int(item.get("ring_number", 0)),
-            is_seed=bool(item.get("is_seed", False)),
-        )
-        for item in run.get("parcels", [])
-    ]
+    parcels = [ParcelResponse(**item) for item in run.get("parcels", [])]
 
     return RunResponse(
         id=int(run["id"]),
-        input_address=run["input_address"],
+        county=run["county"],
+        input=run["input"],
+        input_label=run["input_label"],
         rings_requested=int(run["rings_requested"]),
         status=run["status"],
-        provider=run["provider"],
+        capped_by=run.get("capped_by"),
+        source_id=run["source_id"],
         llm_enabled=bool(run["llm_enabled"]),
         seed_parcel_id=run.get("seed_parcel_id"),
         summary=run.get("summary"),

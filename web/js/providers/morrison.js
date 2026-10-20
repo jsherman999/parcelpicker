@@ -7,7 +7,7 @@ export class MorrisonProvider extends BaseParcelProvider {
   endpointUrl =
     "https://services1.arcgis.com/lQjrBHFnTgKBR9zX/arcgis/rest/services/" +
     "Parcels/FeatureServer/0/query";
-  sourceLabel = "morrison_county_arcgis";
+  sourceId = "morrison_county_arcgis";
   parcelIdField = "PIN";
   ownerField = "Primary_Owner";
   valueField = "Total_EMV";

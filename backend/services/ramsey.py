@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from backend.services.base import BaseParcelService, street_prefix
+from backend.services.base import BaseParcelProvider, street_prefix
 
 
 RAMSEY_QUERY_URL = (
@@ -12,12 +12,15 @@ RAMSEY_QUERY_URL = (
 )
 
 
-class RamseyParcelService(BaseParcelService):
+class RamseyParcelProvider(BaseParcelProvider):
 
     endpoint_url = RAMSEY_QUERY_URL
-    source_label = "ramsey_county_arcgis"
+    source_id = "ramsey_county_arcgis"
     parcel_id_field = "ParcelID"
     owner_field = "OwnerName"
+    value_field = "EMVTotal"
+    value_year_field = "EMVYear"
+    land_use_field = "LandUseCodeDescription"
     address_field = "SiteAddress"
     extra_out_fields = ["SiteCityName", "SiteZIP5"]
     adjacent_spatial_rel = "esriSpatialRelIntersects"

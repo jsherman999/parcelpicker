@@ -13,7 +13,7 @@ export class SpecParcelProvider extends BaseParcelProvider {
   constructor(spec, options = {}) {
     super(options);
     this.endpointUrl = `${spec.url}/query`;
-    this.sourceLabel = `${spec.id}_county_arcgis`;
+    this.sourceId = `${spec.id}_county_arcgis`;
     this.parcelIdField = spec.fields.apn;
     this.ownerField = spec.fields.owner;
     // Only full street-address fields are kept in the bundle. Partial
@@ -54,10 +54,7 @@ export class SpecParcelProvider extends BaseParcelProvider {
 
   // Statewide layers carry every opt-in county; the filter clause pins each
   // query to this county (same safety idea as mn_state.js CO_NAME).
-  async _queryCounty(params, budget) {
-    if (this.filter) {
-      params = { ...params, where: `(${params.where || "1=1"}) AND (${this.filter})` };
-    }
-    return super._queryCounty(params, budget);
+  _scopeWhere(where) {
+    return this.filter ? `(${where}) AND (${this.filter})` : where;
   }
 }

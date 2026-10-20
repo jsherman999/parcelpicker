@@ -2,6 +2,40 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.12.0] - 2026-10-20
+
+### Fixed
+- Cached lookups no longer cross county lines. Address aliases, cached runs
+  and cached parcels were keyed by address or parcel ID alone, so typing an
+  address in one county could return a run cached for the same address in
+  another, and a parcel ID used by two counties shared one stored row. All
+  of them are now keyed by county, in the browser store and in SQLite.
+- Multipart parcels are stored as GeoJSON `MultiPolygon`s. Their extra parts
+  used to be treated as holes, so clicks on them missed the local cache and
+  exported GeoJSON was invalid.
+- Running out of the request budget during ring expansion now ends the run as
+  `capped` with the parcels found so far, the same as reaching the parcel
+  limit, instead of failing it. A new `capped_by` field says which limit
+  (`max_parcels` or `request_budget`).
+
+### Changed
+- One definition of a parcel and a run (`web/js/model.js`,
+  `backend/services/parcel.py`) replaces the copies spread across the
+  providers, runner and store. The Python backend's parcels now carry market
+  value, value year and land use, as the browser build's already did.
+- Runs record `input` as `{kind: "address" | "point" | "parcel", ...}` plus
+  an `input_label`, replacing `input_address` strings like `POINT(lat, lon)`.
+- Naming: county data sources are "providers" (`createProvider`,
+  `create_provider`), their label is `source_id` on runs and parcels, and the
+  LLM API is the "vendor". `matched_by` is one of `address`,
+  `address_point`, `geocode_point`, `map_point`, `cache_point` or
+  `adjacent`. CSV and GeoJSON exports gain a `county` column, and `source`
+  becomes `source_id`.
+- Each county is one registry record (provider, label, map view, links).
+  The property-links config no longer repeats the layer URL and ID field.
+- Existing browser and SQLite data is migrated in place. Old runs stay in
+  history but are not reused as cache hits.
+
 ## [0.11.1] - 2026-10-18
 
 ### Fixed

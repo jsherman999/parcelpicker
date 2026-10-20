@@ -5,7 +5,7 @@ export class AitkinProvider extends BaseParcelProvider {
   endpointUrl =
     "https://gisweb.co.aitkin.mn.us/arcgis/rest/services/" +
     "ParcelTaxData/FeatureServer/0/query";
-  sourceLabel = "aitkin_county_arcgis";
+  sourceId = "aitkin_county_arcgis";
   parcelIdField = "PRCL_NBR";
   ownerField = "OWNNAME";
   valueField = "ESTTOTVAL";

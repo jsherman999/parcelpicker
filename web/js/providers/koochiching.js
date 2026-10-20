@@ -5,7 +5,7 @@ export class KoochichingProvider extends BaseParcelProvider {
   endpointUrl =
     "https://services3.arcgis.com/8mdusDCY0WncdJVw/arcgis/rest/services/" +
     "KoochichingCountyParcelDataPublish/FeatureServer/0/query";
-  sourceLabel = "koochiching_county_arcgis";
+  sourceId = "koochiching_county_arcgis";
   parcelIdField = "PARCEL_ID";
   ownerField = "OWNNAME";
   landUseField = "CLASSCODE1";

@@ -5,7 +5,7 @@ export class AnokaProvider extends BaseParcelProvider {
   endpointUrl =
     "https://gisservices.co.anoka.mn.us/anoka_gis/rest/services/" +
     "Parcels/FeatureServer/0/query";
-  sourceLabel = "anoka_county_arcgis";
+  sourceId = "anoka_county_arcgis";
   parcelIdField = "PIN";
   ownerField = "OWNER";
   valueField = "MKT_VALUE";

@@ -3,6 +3,8 @@
 
 import { sleep, fetchWithTimeout } from "../util.js";
 import { geocodeAddress } from "../geocode.js";
+import { esriToGeoJson, geoJsonToEsri } from "../geometry.js";
+import { MATCHED_BY, normalizeText, toParcel } from "../model.js";
 
 // Common US street-type and directional tokens, used to isolate the street
 // line (house number + street) from a full "street, city, state zip" input.
@@ -59,7 +61,8 @@ export function streetPrefix(address) {
 export class BaseParcelProvider {
   // Subclasses override these class fields.
   endpointUrl = "";
-  sourceLabel = "";
+  // Label of this data source, recorded on runs and parcels as source_id.
+  sourceId = "";
   parcelIdField = "";
   ownerField = "";
   addressField = "";
@@ -81,11 +84,14 @@ export class BaseParcelProvider {
   postLongQueries = true;
 
   constructor({
+    county = "",
     timeoutMs = 20000,
     retries = 2,
     backoffMs = 800,
     minIntervalMs = 150,
   } = {}) {
+    // Registry id ("stlouis"); stamped on every parcel this provider returns.
+    this.county = county;
     this._timeoutMs = timeoutMs;
     this._maxRetries = retries;
     this._backoffMs = backoffMs;
@@ -98,7 +104,7 @@ export class BaseParcelProvider {
   // ---- public lookup surface --------------------------------------------
 
   async lookup(address, budget) {
-    const cleaned = this._normalizeAddress(address);
+    const cleaned = normalizeText(address);
     if (!cleaned) throw new Error("Address must not be empty.");
 
     const cached = this._addressCache.get(cleaned);
@@ -106,7 +112,7 @@ export class BaseParcelProvider {
 
     let feature = await this._queryByAddress(cleaned, budget);
     if (feature) {
-      const record = this._featureToRecord(feature, `${this.sourceLabel}_address`);
+      const record = this._featureToRecord(feature, MATCHED_BY.ADDRESS);
       this._cacheRecord(cleaned, record);
       return record;
     }
@@ -121,7 +127,7 @@ export class BaseParcelProvider {
     feature = await this._queryByPoint(geocoded.lon, geocoded.lat, budget);
     if (!feature) return null;
 
-    const record = this._featureToRecord(feature, "geocode_point_intersect");
+    const record = this._featureToRecord(feature, MATCHED_BY.GEOCODE_POINT);
     this._cacheRecord(cleaned, record);
     return record;
   }
@@ -129,14 +135,14 @@ export class BaseParcelProvider {
   async lookupByPoint({ lon, lat, budget }) {
     const feature = await this._queryByPoint(lon, lat, budget);
     if (!feature) return null;
-    const record = this._featureToRecord(feature, "map_click_intersect");
+    const record = this._featureToRecord(feature, MATCHED_BY.MAP_POINT);
     this._cacheRecord(null, record);
     return record;
   }
 
   async queryAdjacent(geometry, { budget, excludeIds, limit }) {
     if (!geometry) return [];
-    const esri = this._toEsriPolygon(geometry);
+    const esri = geoJsonToEsri(geometry);
     if (!esri) return [];
 
     const features = await this._queryCounty(
@@ -156,7 +162,7 @@ export class BaseParcelProvider {
 
     const neighbors = [];
     for (const feature of features) {
-      const record = this._featureToRecord(feature, `${this.sourceLabel}_touches`);
+      const record = this._featureToRecord(feature, MATCHED_BY.ADJACENT);
       if (!record.parcel_id || excludeIds.has(record.parcel_id)) continue;
       neighbors.push(record);
       this._cacheRecord(null, record);
@@ -215,7 +221,27 @@ export class BaseParcelProvider {
   }
 
   async _queryCounty(params, budget) {
-    return this._queryUrl(this.endpointUrl, params, budget);
+    const where = this._scopeWhere(params.where || "1=1");
+    return this._queryUrl(this.endpointUrl, { ...params, where }, budget);
+  }
+
+  // Pins a WHERE clause to this county. Layers that hold several counties
+  // (the MN state server, statewide spec layers) override it.
+  _scopeWhere(where) {
+    return where;
+  }
+
+  // This parcel's raw record on the county layer, as pretty JSON.
+  parcelJsonUrl(parcelId) {
+    const where = this._scopeWhere(`${this.parcelIdField}='${this._sqlEscape(parcelId)}'`);
+    const params = new URLSearchParams({
+      f: "pjson",
+      where,
+      outFields: this._getOutfields(),
+      returnGeometry: "true",
+      outSR: "4326",
+    });
+    return `${this.endpointUrl}?${params}`;
   }
 
   async _queryUrl(url, params, budget) {
@@ -313,45 +339,25 @@ export class BaseParcelProvider {
 
   // ---- record + geometry conversion -------------------------------------
 
+  // A feature may carry its own matchedBy (set by a provider that found it
+  // another way, e.g. through an address point); it wins over the caller's.
   _featureToRecord(feature, matchedBy) {
     const attrs = feature.attributes || {};
-    const geometry = this._geometryToGeojson(feature.geometry);
-    return {
-      parcel_id: String(attrs[this.parcelIdField] ?? "").trim(),
-      owner_name: String(attrs[this.ownerField] ?? "").trim(),
+    return toParcel({
+      county: this.county,
+      parcel_id: attrs[this.parcelIdField],
+      owner_name: attrs[this.ownerField],
       site_address: this._buildAddress(attrs),
       market_value: this._marketValue(attrs),
       market_value_year: this._marketValueYear(attrs),
       land_use: this.landUseField ? cleanText(attrs[this.landUseField]) : "",
-      geometry,
-      source: this.sourceLabel,
-      matched_by: matchedBy,
-    };
-  }
-
-  _geometryToGeojson(geometry) {
-    if (!geometry) return null;
-    if ("rings" in geometry) {
-      return { type: "Polygon", coordinates: geometry.rings };
-    }
-    if ("x" in geometry && "y" in geometry) {
-      return { type: "Point", coordinates: [geometry.x, geometry.y] };
-    }
-    return null;
-  }
-
-  _toEsriPolygon(geojson) {
-    if (!geojson || geojson.type !== "Polygon") return null;
-    const rings = geojson.coordinates;
-    if (!Array.isArray(rings)) return null;
-    return { rings, spatialReference: { wkid: 4326 } };
+      geometry: esriToGeoJson(feature.geometry),
+      source_id: this.sourceId,
+      matched_by: feature.matchedBy || matchedBy,
+    });
   }
 
   // ---- string helpers ----------------------------------------------------
-
-  _normalizeAddress(address) {
-    return String(address || "").trim().toUpperCase().split(/\s+/).join(" ");
-  }
 
   // Extract just the street line from a full address, e.g.
   // "4706 MAYER AVE NE ST MICHAEL, MN 55376" -> "4706 MAYER AVE NE".

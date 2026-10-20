@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from backend.services.base import BaseParcelService, RequestBudget
+from backend.services.base import BaseParcelProvider, RequestBudget
 
 
 # All seven metro counties are published on one MN state ArcGIS server, one
@@ -15,7 +15,7 @@ MN_STATE_PARCELS_FEATURESERVER = (
 )
 
 
-class MnStateSchemaParcelService(BaseParcelService):
+class MnStateSchemaParcelProvider(BaseParcelProvider):
     """Shared adapter for metro counties on the MN state parcel server.
 
     Schema: PIN / OWNER_NAME / ANUMBER (int) / ST_NAME / ST_POS_TYP /
@@ -27,6 +27,9 @@ class MnStateSchemaParcelService(BaseParcelService):
     co_name: str = ""
     parcel_id_field = "PIN"
     owner_field = "OWNER_NAME"
+    value_field = "EMV_TOTAL"
+    value_year_field = "MKT_YEAR"
+    land_use_field = "USECLASS1"
     address_field = ""
     extra_out_fields = [
         "ANUMBER",
@@ -130,25 +133,25 @@ class MnStateSchemaParcelService(BaseParcelService):
         return first or None
 
 
-class DakotaParcelService(MnStateSchemaParcelService):
+class DakotaParcelProvider(MnStateSchemaParcelProvider):
 
     endpoint_url = MN_STATE_PARCELS_FEATURESERVER + "/2/query"
-    source_label = "dakota_county_arcgis_state"
+    source_id = "dakota_county_arcgis_state"
     co_name = "Dakota"
 
 
-class WashingtonParcelService(MnStateSchemaParcelService):
+class WashingtonParcelProvider(MnStateSchemaParcelProvider):
 
     endpoint_url = MN_STATE_PARCELS_FEATURESERVER + "/6/query"
-    source_label = "washington_county_arcgis_state"
+    source_id = "washington_county_arcgis_state"
     co_name = "Washington"
 
 
-class CarverParcelService(MnStateSchemaParcelService):
+class CarverParcelProvider(MnStateSchemaParcelProvider):
     # Verified 2026-08-21: OWNER_NAME is 100% null in the Carver layer, while
     # TAX_NAME (the taxpayer name) is populated for 47,585 of 47,886 parcels.
     owner_field = "TAX_NAME"
 
     endpoint_url = MN_STATE_PARCELS_FEATURESERVER + "/1/query"
-    source_label = "carver_county_arcgis_state"
+    source_id = "carver_county_arcgis_state"
     co_name = "Carver"
